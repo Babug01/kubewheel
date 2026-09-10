@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ResourceKind, ResourceRow, ResourceTableResult } from '@shared/types'
-import { RESOURCE_KIND_LABELS } from '@shared/types'
+import { RESOURCE_KIND_LABELS, RESOURCE_KIND_NAMESPACED } from '@shared/types'
 
 interface Props {
   kind: ResourceKind
@@ -26,6 +26,7 @@ export default function ResourceView({
   onViewLogs
 }: Props): React.JSX.Element {
   const [search, setSearch] = useState('')
+  const namespaced = RESOURCE_KIND_NAMESPACED[kind]
 
   const rows = useMemo(() => {
     if (!table) return []
@@ -40,18 +41,20 @@ export default function ResourceView({
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {RESOURCE_KIND_LABELS[kind]}
         </h2>
-        <select
-          value={namespace}
-          onChange={(e) => onNamespaceChange(e.target.value)}
-          className="rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        >
-          <option value="all">All namespaces</option>
-          {namespaces.map((ns) => (
-            <option key={ns} value={ns}>
-              {ns}
-            </option>
-          ))}
-        </select>
+        {namespaced && (
+          <select
+            value={namespace}
+            onChange={(e) => onNamespaceChange(e.target.value)}
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="all">All namespaces</option>
+            {namespaces.map((ns) => (
+              <option key={ns} value={ns}>
+                {ns}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -76,7 +79,7 @@ export default function ResourceView({
             <thead className="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400">
               <tr>
                 <th className="px-3 py-2 font-medium">Name</th>
-                {namespace === 'all' && <th className="px-3 py-2 font-medium">Namespace</th>}
+                {namespaced && namespace === 'all' && <th className="px-3 py-2 font-medium">Namespace</th>}
                 {table.columns.map((c) => (
                   <th key={c.key} className="px-3 py-2 font-medium">
                     {c.label}
@@ -93,7 +96,7 @@ export default function ResourceView({
                   onClick={() => onSelectRow(row)}
                 >
                   <td className="px-3 py-2 font-medium">{row.name}</td>
-                  {namespace === 'all' && <td className="px-3 py-2">{row.namespace}</td>}
+                  {namespaced && namespace === 'all' && <td className="px-3 py-2">{row.namespace}</td>}
                   {table.columns.map((c) => (
                     <td key={c.key} className="max-w-[280px] truncate px-3 py-2" title={row.cells[c.key]}>
                       {row.cells[c.key]}

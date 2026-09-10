@@ -4,6 +4,14 @@ import {
   AppsV1Api,
   NetworkingV1Api,
   VersionApi,
+  BatchV1Api,
+  AutoscalingV2Api,
+  PolicyV1Api,
+  SchedulingV1Api,
+  CoordinationV1Api,
+  StorageV1Api,
+  RbacAuthorizationV1Api,
+  DiscoveryV1Api,
   Log
 } from '@kubernetes/client-node'
 import * as yaml from 'js-yaml'
@@ -32,6 +40,11 @@ function cleanForYaml<T extends { metadata?: { managedFields?: unknown } }>(obj:
   const clone = structuredClone(obj)
   if (clone.metadata) delete clone.metadata.managedFields
   return clone
+}
+
+// Shorthand for the common name/namespace/cells row shape used by every list method below.
+function row(meta: { name?: string; namespace?: string } | undefined, cells: Record<string, string>): ResourceRow {
+  return { name: meta?.name ?? '-', namespace: meta?.namespace, cells }
 }
 
 // Secrets are read-only here by design; values are never surfaced, only key names.
@@ -71,6 +84,14 @@ export class KubeManager {
   private apps!: AppsV1Api
   private net!: NetworkingV1Api
   private version!: VersionApi
+  private batch!: BatchV1Api
+  private autoscaling!: AutoscalingV2Api
+  private policy!: PolicyV1Api
+  private scheduling!: SchedulingV1Api
+  private coordination!: CoordinationV1Api
+  private storage!: StorageV1Api
+  private rbac!: RbacAuthorizationV1Api
+  private discovery!: DiscoveryV1Api
   private activeLogStreams = new Map<string, AbortController>()
 
   constructor(contextName: string) {
@@ -84,6 +105,14 @@ export class KubeManager {
     this.apps = this.kc.makeApiClient(AppsV1Api)
     this.net = this.kc.makeApiClient(NetworkingV1Api)
     this.version = this.kc.makeApiClient(VersionApi)
+    this.batch = this.kc.makeApiClient(BatchV1Api)
+    this.autoscaling = this.kc.makeApiClient(AutoscalingV2Api)
+    this.policy = this.kc.makeApiClient(PolicyV1Api)
+    this.scheduling = this.kc.makeApiClient(SchedulingV1Api)
+    this.coordination = this.kc.makeApiClient(CoordinationV1Api)
+    this.storage = this.kc.makeApiClient(StorageV1Api)
+    this.rbac = this.kc.makeApiClient(RbacAuthorizationV1Api)
+    this.discovery = this.kc.makeApiClient(DiscoveryV1Api)
   }
 
   async getOverview(): Promise<ClusterOverview> {
@@ -130,14 +159,58 @@ export class KubeManager {
         return this.listStatefulSets(namespace)
       case 'daemonsets':
         return this.listDaemonSets(namespace)
+      case 'replicasets':
+        return this.listReplicaSets(namespace)
+      case 'jobs':
+        return this.listJobs(namespace)
+      case 'cronjobs':
+        return this.listCronJobs(namespace)
       case 'services':
         return this.listServices(namespace)
       case 'ingresses':
         return this.listIngresses(namespace)
+      case 'ingressclasses':
+        return this.listIngressClasses()
+      case 'endpoints':
+        return this.listEndpoints(namespace)
+      case 'endpointslices':
+        return this.listEndpointSlices(namespace)
+      case 'networkpolicies':
+        return this.listNetworkPolicies(namespace)
       case 'configmaps':
         return this.listConfigMaps(namespace)
       case 'secrets':
         return this.listSecrets(namespace)
+      case 'resourcequotas':
+        return this.listResourceQuotas(namespace)
+      case 'limitranges':
+        return this.listLimitRanges(namespace)
+      case 'hpas':
+        return this.listHpas(namespace)
+      case 'poddisruptionbudgets':
+        return this.listPodDisruptionBudgets(namespace)
+      case 'priorityclasses':
+        return this.listPriorityClasses()
+      case 'leases':
+        return this.listLeases(namespace)
+      case 'persistentvolumeclaims':
+        return this.listPvcs(namespace)
+      case 'persistentvolumes':
+        return this.listPvs()
+      case 'storageclasses':
+        return this.listStorageClasses()
+      case 'namespaces':
+        return this.listNamespacesTable()
+      case 'serviceaccounts':
+        return this.listServiceAccounts(namespace)
+      case 'roles':
+        return this.listRoles(namespace)
+      case 'rolebindings':
+        return this.listRoleBindings(namespace)
+      case 'clusterroles':
+        return this.listClusterRoles()
+      case 'clusterrolebindings':
+        return this.listClusterRoleBindings()
       case 'events':
         return this.listEvents(namespace)
     }
@@ -370,6 +443,461 @@ export class KubeManager {
     }
   }
 
+  private async listReplicaSets(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.apps.listReplicaSetForAllNamespaces()
+        : await this.apps.listNamespacedReplicaSet({ namespace })
+    return {
+      columns: [
+        { key: 'desired', label: 'Desired' },
+        { key: 'current', label: 'Current' },
+        { key: 'ready', label: 'Ready' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((r) =>
+        row(r.metadata, {
+          desired: String(r.spec?.replicas ?? 0),
+          current: String(r.status?.replicas ?? 0),
+          ready: String(r.status?.readyReplicas ?? 0),
+          age: formatAge(r.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listJobs(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.batch.listJobForAllNamespaces()
+        : await this.batch.listNamespacedJob({ namespace })
+    return {
+      columns: [
+        { key: 'completions', label: 'Completions' },
+        { key: 'status', label: 'Status' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((j) =>
+        row(j.metadata, {
+          completions: `${j.status?.succeeded ?? 0}/${j.spec?.completions ?? 1}`,
+          status: j.status?.failed ? 'Failed' : j.status?.active ? 'Running' : j.status?.succeeded ? 'Complete' : 'Pending',
+          age: formatAge(j.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listCronJobs(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.batch.listCronJobForAllNamespaces()
+        : await this.batch.listNamespacedCronJob({ namespace })
+    return {
+      columns: [
+        { key: 'schedule', label: 'Schedule' },
+        { key: 'suspend', label: 'Suspend' },
+        { key: 'active', label: 'Active' },
+        { key: 'lastSchedule', label: 'Last Schedule' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((c) =>
+        row(c.metadata, {
+          schedule: c.spec?.schedule ?? '-',
+          suspend: String(c.spec?.suspend ?? false),
+          active: String(c.status?.active?.length ?? 0),
+          lastSchedule: formatAge(c.status?.lastScheduleTime),
+          age: formatAge(c.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listIngressClasses(): Promise<ResourceTableResult> {
+    const list = await this.net.listIngressClass()
+    return {
+      columns: [
+        { key: 'controller', label: 'Controller' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((i) =>
+        row(i.metadata, {
+          controller: i.spec?.controller ?? '-',
+          age: formatAge(i.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listEndpoints(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.core.listEndpointsForAllNamespaces()
+        : await this.core.listNamespacedEndpoints({ namespace })
+    return {
+      columns: [
+        { key: 'endpoints', label: 'Endpoints' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((e) => {
+        const addrs = (e.subsets ?? []).flatMap(
+          (s) => (s.addresses ?? []).flatMap((a) => (s.ports ?? [{ port: undefined }]).map((p) => `${a.ip}${p.port ? ':' + p.port : ''}`))
+        )
+        return row(e.metadata, {
+          endpoints: addrs.slice(0, 3).join(',') + (addrs.length > 3 ? ` (+${addrs.length - 3})` : '') || '-',
+          age: formatAge(e.metadata?.creationTimestamp)
+        })
+      })
+    }
+  }
+
+  private async listEndpointSlices(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.discovery.listEndpointSliceForAllNamespaces()
+        : await this.discovery.listNamespacedEndpointSlice({ namespace })
+    return {
+      columns: [
+        { key: 'addressType', label: 'Address Type' },
+        { key: 'ports', label: 'Ports' },
+        { key: 'endpointCount', label: 'Endpoints' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((e) =>
+        row(e.metadata, {
+          addressType: e.addressType ?? '-',
+          ports: (e.ports ?? []).map((p) => `${p.port}${p.protocol ? '/' + p.protocol : ''}`).join(',') || '-',
+          endpointCount: String(e.endpoints?.length ?? 0),
+          age: formatAge(e.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listNetworkPolicies(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.net.listNetworkPolicyForAllNamespaces()
+        : await this.net.listNamespacedNetworkPolicy({ namespace })
+    return {
+      columns: [
+        { key: 'podSelector', label: 'Pod Selector' },
+        { key: 'policyTypes', label: 'Policy Types' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((n) =>
+        row(n.metadata, {
+          podSelector: Object.entries(n.spec?.podSelector?.matchLabels ?? {}).map(([k, v]) => `${k}=${v}`).join(',') || 'all pods',
+          policyTypes: (n.spec?.policyTypes ?? []).join(',') || '-',
+          age: formatAge(n.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listResourceQuotas(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.core.listResourceQuotaForAllNamespaces()
+        : await this.core.listNamespacedResourceQuota({ namespace })
+    return {
+      columns: [
+        { key: 'requests', label: 'Used / Hard' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((q) => {
+        const used = q.status?.used ?? {}
+        const hard = q.status?.hard ?? {}
+        const summary = Object.keys(hard)
+          .slice(0, 3)
+          .map((k) => `${k}: ${used[k] ?? 0}/${hard[k]}`)
+          .join(', ')
+        return row(q.metadata, { requests: summary || '-', age: formatAge(q.metadata?.creationTimestamp) })
+      })
+    }
+  }
+
+  private async listLimitRanges(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.core.listLimitRangeForAllNamespaces()
+        : await this.core.listNamespacedLimitRange({ namespace })
+    return {
+      columns: [
+        { key: 'limitCount', label: 'Limits' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((l) =>
+        row(l.metadata, {
+          limitCount: String(l.spec?.limits?.length ?? 0),
+          age: formatAge(l.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listHpas(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.autoscaling.listHorizontalPodAutoscalerForAllNamespaces()
+        : await this.autoscaling.listNamespacedHorizontalPodAutoscaler({ namespace })
+    return {
+      columns: [
+        { key: 'reference', label: 'Reference' },
+        { key: 'minPods', label: 'Min' },
+        { key: 'maxPods', label: 'Max' },
+        { key: 'replicas', label: 'Replicas' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((h) =>
+        row(h.metadata, {
+          reference: h.spec?.scaleTargetRef ? `${h.spec.scaleTargetRef.kind}/${h.spec.scaleTargetRef.name}` : '-',
+          minPods: String(h.spec?.minReplicas ?? '-'),
+          maxPods: String(h.spec?.maxReplicas ?? '-'),
+          replicas: String(h.status?.currentReplicas ?? 0),
+          age: formatAge(h.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listPodDisruptionBudgets(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.policy.listPodDisruptionBudgetForAllNamespaces()
+        : await this.policy.listNamespacedPodDisruptionBudget({ namespace })
+    return {
+      columns: [
+        { key: 'minAvailable', label: 'Min Available' },
+        { key: 'maxUnavailable', label: 'Max Unavailable' },
+        { key: 'allowedDisruptions', label: 'Allowed Disruptions' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((p) =>
+        row(p.metadata, {
+          minAvailable: String(p.spec?.minAvailable ?? '-'),
+          maxUnavailable: String(p.spec?.maxUnavailable ?? '-'),
+          allowedDisruptions: String(p.status?.disruptionsAllowed ?? 0),
+          age: formatAge(p.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listPriorityClasses(): Promise<ResourceTableResult> {
+    const list = await this.scheduling.listPriorityClass()
+    return {
+      columns: [
+        { key: 'value', label: 'Value' },
+        { key: 'globalDefault', label: 'Global Default' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((p) =>
+        row(p.metadata, {
+          value: String(p.value ?? 0),
+          globalDefault: String(p.globalDefault ?? false),
+          age: formatAge(p.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listLeases(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.coordination.listLeaseForAllNamespaces()
+        : await this.coordination.listNamespacedLease({ namespace })
+    return {
+      columns: [
+        { key: 'holder', label: 'Holder' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((l) =>
+        row(l.metadata, {
+          holder: l.spec?.holderIdentity ?? '-',
+          age: formatAge(l.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listPvcs(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.core.listPersistentVolumeClaimForAllNamespaces()
+        : await this.core.listNamespacedPersistentVolumeClaim({ namespace })
+    return {
+      columns: [
+        { key: 'status', label: 'Status' },
+        { key: 'volume', label: 'Volume' },
+        { key: 'capacity', label: 'Capacity' },
+        { key: 'storageClass', label: 'Storage Class' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((p) =>
+        row(p.metadata, {
+          status: p.status?.phase ?? '-',
+          volume: p.spec?.volumeName ?? '-',
+          capacity: p.status?.capacity?.storage ?? '-',
+          storageClass: p.spec?.storageClassName ?? '-',
+          age: formatAge(p.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listPvs(): Promise<ResourceTableResult> {
+    const list = await this.core.listPersistentVolume()
+    return {
+      columns: [
+        { key: 'capacity', label: 'Capacity' },
+        { key: 'accessModes', label: 'Access Modes' },
+        { key: 'reclaimPolicy', label: 'Reclaim Policy' },
+        { key: 'status', label: 'Status' },
+        { key: 'claim', label: 'Claim' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((p) =>
+        row(p.metadata, {
+          capacity: p.spec?.capacity?.storage ?? '-',
+          accessModes: (p.spec?.accessModes ?? []).join(',') || '-',
+          reclaimPolicy: p.spec?.persistentVolumeReclaimPolicy ?? '-',
+          status: p.status?.phase ?? '-',
+          claim: p.spec?.claimRef ? `${p.spec.claimRef.namespace}/${p.spec.claimRef.name}` : '-',
+          age: formatAge(p.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listStorageClasses(): Promise<ResourceTableResult> {
+    const list = await this.storage.listStorageClass()
+    return {
+      columns: [
+        { key: 'provisioner', label: 'Provisioner' },
+        { key: 'reclaimPolicy', label: 'Reclaim Policy' },
+        { key: 'volumeBindingMode', label: 'Volume Binding Mode' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((s) =>
+        row(s.metadata, {
+          provisioner: s.provisioner ?? '-',
+          reclaimPolicy: s.reclaimPolicy ?? '-',
+          volumeBindingMode: s.volumeBindingMode ?? '-',
+          age: formatAge(s.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listNamespacesTable(): Promise<ResourceTableResult> {
+    const list = await this.core.listNamespace()
+    return {
+      columns: [
+        { key: 'status', label: 'Status' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((n) =>
+        row(n.metadata, {
+          status: n.status?.phase ?? '-',
+          age: formatAge(n.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listServiceAccounts(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.core.listServiceAccountForAllNamespaces()
+        : await this.core.listNamespacedServiceAccount({ namespace })
+    return {
+      columns: [
+        { key: 'secrets', label: 'Secrets' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((s) =>
+        row(s.metadata, {
+          secrets: String(s.secrets?.length ?? 0),
+          age: formatAge(s.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listRoles(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.rbac.listRoleForAllNamespaces()
+        : await this.rbac.listNamespacedRole({ namespace })
+    return {
+      columns: [
+        { key: 'rules', label: 'Rules' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((r) =>
+        row(r.metadata, {
+          rules: String(r.rules?.length ?? 0),
+          age: formatAge(r.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listRoleBindings(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.rbac.listRoleBindingForAllNamespaces()
+        : await this.rbac.listNamespacedRoleBinding({ namespace })
+    return {
+      columns: [
+        { key: 'role', label: 'Role' },
+        { key: 'subjects', label: 'Subjects' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((b) =>
+        row(b.metadata, {
+          role: b.roleRef ? `${b.roleRef.kind}/${b.roleRef.name}` : '-',
+          subjects: (b.subjects ?? []).map((s) => s.name).join(',') || '-',
+          age: formatAge(b.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listClusterRoles(): Promise<ResourceTableResult> {
+    const list = await this.rbac.listClusterRole()
+    return {
+      columns: [
+        { key: 'rules', label: 'Rules' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((r) =>
+        row(r.metadata, {
+          rules: String(r.rules?.length ?? 0),
+          age: formatAge(r.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
+  private async listClusterRoleBindings(): Promise<ResourceTableResult> {
+    const list = await this.rbac.listClusterRoleBinding()
+    return {
+      columns: [
+        { key: 'role', label: 'Role' },
+        { key: 'subjects', label: 'Subjects' },
+        { key: 'age', label: 'Age' }
+      ],
+      rows: list.items.map((b) =>
+        row(b.metadata, {
+          role: b.roleRef ? `${b.roleRef.kind}/${b.roleRef.name}` : '-',
+          subjects: (b.subjects ?? []).map((s) => s.name).join(',') || '-',
+          age: formatAge(b.metadata?.creationTimestamp)
+        })
+      )
+    }
+  }
+
   async getResourceYaml(
     kind: ResourceKind,
     namespace: string | undefined,
@@ -406,6 +934,72 @@ export class KubeManager {
       }
       case 'events':
         obj = await this.core.readNamespacedEvent({ name, namespace: namespace! })
+        break
+      case 'replicasets':
+        obj = await this.apps.readNamespacedReplicaSet({ name, namespace: namespace! })
+        break
+      case 'jobs':
+        obj = await this.batch.readNamespacedJob({ name, namespace: namespace! })
+        break
+      case 'cronjobs':
+        obj = await this.batch.readNamespacedCronJob({ name, namespace: namespace! })
+        break
+      case 'ingressclasses':
+        obj = await this.net.readIngressClass({ name })
+        break
+      case 'endpoints':
+        obj = await this.core.readNamespacedEndpoints({ name, namespace: namespace! })
+        break
+      case 'endpointslices':
+        obj = await this.discovery.readNamespacedEndpointSlice({ name, namespace: namespace! })
+        break
+      case 'networkpolicies':
+        obj = await this.net.readNamespacedNetworkPolicy({ name, namespace: namespace! })
+        break
+      case 'resourcequotas':
+        obj = await this.core.readNamespacedResourceQuota({ name, namespace: namespace! })
+        break
+      case 'limitranges':
+        obj = await this.core.readNamespacedLimitRange({ name, namespace: namespace! })
+        break
+      case 'hpas':
+        obj = await this.autoscaling.readNamespacedHorizontalPodAutoscaler({ name, namespace: namespace! })
+        break
+      case 'poddisruptionbudgets':
+        obj = await this.policy.readNamespacedPodDisruptionBudget({ name, namespace: namespace! })
+        break
+      case 'priorityclasses':
+        obj = await this.scheduling.readPriorityClass({ name })
+        break
+      case 'leases':
+        obj = await this.coordination.readNamespacedLease({ name, namespace: namespace! })
+        break
+      case 'persistentvolumeclaims':
+        obj = await this.core.readNamespacedPersistentVolumeClaim({ name, namespace: namespace! })
+        break
+      case 'persistentvolumes':
+        obj = await this.core.readPersistentVolume({ name })
+        break
+      case 'storageclasses':
+        obj = await this.storage.readStorageClass({ name })
+        break
+      case 'namespaces':
+        obj = await this.core.readNamespace({ name })
+        break
+      case 'serviceaccounts':
+        obj = await this.core.readNamespacedServiceAccount({ name, namespace: namespace! })
+        break
+      case 'roles':
+        obj = await this.rbac.readNamespacedRole({ name, namespace: namespace! })
+        break
+      case 'rolebindings':
+        obj = await this.rbac.readNamespacedRoleBinding({ name, namespace: namespace! })
+        break
+      case 'clusterroles':
+        obj = await this.rbac.readClusterRole({ name })
+        break
+      case 'clusterrolebindings':
+        obj = await this.rbac.readClusterRoleBinding({ name })
         break
     }
     return yaml.dump(cleanForYaml(obj as { metadata?: { managedFields?: unknown } }), { noRefs: true })
