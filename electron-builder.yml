@@ -1,0 +1,16 @@
+appId: dev.babug01.kubelenslite
+productName: Kube Lens Lite
+directories:
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
