@@ -52,6 +52,20 @@ function registerIpcHandlers(): void {
     withResult(() => getKube(contextName).listPodContainers(namespace, pod))
   )
 
+  ipcMain.handle('k8s:listCrds', (_e, contextName: string) => withResult(() => getKube(contextName).listCrds()))
+
+  ipcMain.handle(
+    'k8s:listCrdInstances',
+    (_e, contextName: string, crdName: string, namespace: string) =>
+      withResult(() => getKube(contextName).listCrdInstances(crdName, namespace as string | 'all'))
+  )
+
+  ipcMain.handle(
+    'k8s:getCrdInstanceYaml',
+    (_e, contextName: string, crdName: string, namespace: string | undefined, name: string) =>
+      withResult(() => getKube(contextName).getCrdInstanceYaml(crdName, namespace, name))
+  )
+
   ipcMain.handle('logs:start', (event, contextName: string, req: LogStreamRequest) => {
     const sender = event.sender
     return getKube(contextName).streamLogs(

@@ -1,7 +1,7 @@
 import type { ResourceKind } from '@shared/types'
 import { RESOURCE_KIND_LABELS } from '@shared/types'
 
-export type ViewKind = 'overview' | ResourceKind
+export type ViewKind = 'overview' | 'customresources' | ResourceKind
 
 interface Props {
   contextName: string
@@ -70,6 +70,15 @@ export default function Sidebar({ contextName, view, onSelectView }: Props): Rea
             ))}
           </div>
         ))}
+
+        <div className="mt-3 mb-1 px-2 text-[11px] font-medium uppercase text-slate-400">
+          Custom Resources
+        </div>
+        <NavItem
+          label="Custom Resources"
+          active={view === 'customresources'}
+          onClick={() => onSelectView('customresources')}
+        />
       </nav>
 
       <div className="px-3 py-2 text-[11px] text-slate-400">Read-only viewer</div>

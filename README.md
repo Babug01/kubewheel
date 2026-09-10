@@ -21,6 +21,10 @@ running on a cluster and tailing pod logs, without the weight of a full IDE.
   (Service Accounts, Roles, RoleBindings, ClusterRoles, ClusterRoleBindings), plus Namespaces and
   Events — per-namespace or across all namespaces (cluster-scoped kinds skip the namespace filter),
   with name filtering
+- Custom Resources — every CRD on the cluster, grouped by API group like `kubectl api-resources`.
+  Instance tables use the CRD's own `additionalPrinterColumns` (the same schema `kubectl get`
+  reads), including the common `conditions[?(@.type=="X")]` filter pattern used by cert-manager,
+  ArgoCD, and most controllers for their Ready/Status columns — not a generic Name/Age table
 - YAML detail view for any resource (managed-fields stripped for readability; Secret values are
   always redacted — keys are shown, values never are)
 - Live pod log viewer — container picker, tail length, follow/stream toggle

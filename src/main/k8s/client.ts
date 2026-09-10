@@ -12,6 +12,8 @@ import {
   StorageV1Api,
   RbacAuthorizationV1Api,
   DiscoveryV1Api,
+  ApiextensionsV1Api,
+  CustomObjectsApi,
   Log
 } from '@kubernetes/client-node'
 import * as yaml from 'js-yaml'
@@ -19,6 +21,8 @@ import { Writable } from 'stream'
 import type {
   ClusterOverview,
   ContextInfo,
+  CrdGroups,
+  CrdInfo,
   NodeSummary,
   ResourceKind,
   ResourceRow,
@@ -40,6 +44,42 @@ function cleanForYaml<T extends { metadata?: { managedFields?: unknown } }>(obj:
   const clone = structuredClone(obj)
   if (clone.metadata) delete clone.metadata.managedFields
   return clone
+}
+
+// CRD `additionalPrinterColumns[].jsonPath` is a restricted subset of JSONPath: plain field
+// access, numeric array indices, and -- very commonly, e.g. cert-manager's `status.conditions[?
+// (@.type == "Ready")].status` -- a single-condition equality filter (no nesting, no other
+// operators). Full JSONPath filter syntax isn't needed; just that one well-established pattern.
+const JSONPATH_TOKEN =
+  /\.([A-Za-z0-9_-]+)|\[(\d+)\]|\[\?\(@\.([A-Za-z0-9_-]+)\s*(==|!=)\s*["']([^"']*)["']\)\]/g
+
+function resolveJsonPath(obj: unknown, path: string): unknown {
+  let cur: unknown = obj
+  for (const match of path.matchAll(JSONPATH_TOKEN)) {
+    if (cur == null) return undefined
+    const [, field, index, filterKey, filterOp, filterValue] = match
+    if (field !== undefined) {
+      if (typeof cur !== 'object') return undefined
+      cur = (cur as Record<string, unknown>)[field]
+    } else if (index !== undefined) {
+      if (!Array.isArray(cur)) return undefined
+      cur = cur[Number(index)]
+    } else if (filterKey !== undefined) {
+      if (!Array.isArray(cur)) return undefined
+      cur = cur.find((item) => {
+        const value = (item as Record<string, unknown>)?.[filterKey]
+        return filterOp === '==' ? String(value) === filterValue : String(value) !== filterValue
+      })
+    }
+  }
+  return cur
+}
+
+function formatPrinterColumnValue(val: unknown, type?: string): string {
+  if (val === undefined || val === null) return '-'
+  if (type === 'date') return formatAge(val as string)
+  if (typeof val === 'object') return JSON.stringify(val)
+  return String(val)
 }
 
 // Shorthand for the common name/namespace/cells row shape used by every list method below.
@@ -92,6 +132,8 @@ export class KubeManager {
   private storage!: StorageV1Api
   private rbac!: RbacAuthorizationV1Api
   private discovery!: DiscoveryV1Api
+  private apiext!: ApiextensionsV1Api
+  private customObjects!: CustomObjectsApi
   private activeLogStreams = new Map<string, AbortController>()
 
   constructor(contextName: string) {
@@ -113,6 +155,8 @@ export class KubeManager {
     this.storage = this.kc.makeApiClient(StorageV1Api)
     this.rbac = this.kc.makeApiClient(RbacAuthorizationV1Api)
     this.discovery = this.kc.makeApiClient(DiscoveryV1Api)
+    this.apiext = this.kc.makeApiClient(ApiextensionsV1Api)
+    this.customObjects = this.kc.makeApiClient(CustomObjectsApi)
   }
 
   async getOverview(): Promise<ClusterOverview> {
@@ -896,6 +940,110 @@ export class KubeManager {
         })
       )
     }
+  }
+
+  async listCrds(): Promise<CrdGroups> {
+    const list = await this.apiext.listCustomResourceDefinition()
+    const groups: CrdGroups = {}
+    for (const crd of list.items) {
+      const version = crd.spec.versions.find((v) => v.storage) ?? crd.spec.versions.find((v) => v.served) ?? crd.spec.versions[0]
+      if (!version) continue
+      const info: CrdInfo = {
+        name: crd.metadata?.name ?? '-',
+        group: crd.spec.group,
+        version: version.name,
+        kind: crd.spec.names.kind,
+        plural: crd.spec.names.plural,
+        namespaced: crd.spec.scope === 'Namespaced'
+      }
+      ;(groups[info.group] ??= []).push(info)
+    }
+    for (const g of Object.values(groups)) g.sort((a, b) => a.kind.localeCompare(b.kind))
+    return groups
+  }
+
+  private async getCrdDef(crdName: string): Promise<{
+    group: string
+    version: string
+    plural: string
+    namespaced: boolean
+    printerColumns: { name: string; type: string; jsonPath: string }[]
+  }> {
+    const crd = await this.apiext.readCustomResourceDefinition({ name: crdName })
+    const version = crd.spec.versions.find((v) => v.storage) ?? crd.spec.versions.find((v) => v.served) ?? crd.spec.versions[0]
+    return {
+      group: crd.spec.group,
+      version: version?.name ?? '',
+      plural: crd.spec.names.plural,
+      namespaced: crd.spec.scope === 'Namespaced',
+      printerColumns: (version?.additionalPrinterColumns ?? []).filter((c) => c.name !== 'Age')
+    }
+  }
+
+  async listCrdInstances(crdName: string, namespace: string | 'all'): Promise<ResourceTableResult> {
+    const def = await this.getCrdDef(crdName)
+    let items: Record<string, unknown>[]
+    if (!def.namespaced) {
+      const result = await this.customObjects.listClusterCustomObject({
+        group: def.group,
+        version: def.version,
+        plural: def.plural
+      })
+      items = ((result as { items?: Record<string, unknown>[] }).items ?? [])
+    } else if (namespace === 'all') {
+      const result = await this.customObjects.listCustomObjectForAllNamespaces({
+        group: def.group,
+        version: def.version,
+        plural: def.plural
+      })
+      items = ((result as { items?: Record<string, unknown>[] }).items ?? [])
+    } else {
+      const result = await this.customObjects.listNamespacedCustomObject({
+        group: def.group,
+        version: def.version,
+        namespace,
+        plural: def.plural
+      })
+      items = ((result as { items?: Record<string, unknown>[] }).items ?? [])
+    }
+
+    // Real, kind-specific columns from the CRD's own schema -- the same source `kubectl get`
+    // reads -- instead of a generic Name/Age table for every custom resource.
+    const columns = def.printerColumns.map((c) => ({ key: c.name, label: c.name }))
+    columns.push({ key: 'age', label: 'Age' })
+
+    return {
+      columns,
+      rows: items.map((obj) => {
+        const meta = (obj as { metadata?: { name?: string; namespace?: string; creationTimestamp?: string } })
+          .metadata
+        const cells: Record<string, string> = {}
+        for (const col of def.printerColumns) {
+          cells[col.name] = formatPrinterColumnValue(resolveJsonPath(obj, col.jsonPath), col.type)
+        }
+        cells.age = formatAge(meta?.creationTimestamp)
+        return row(meta, cells)
+      })
+    }
+  }
+
+  async getCrdInstanceYaml(crdName: string, namespace: string | undefined, name: string): Promise<string> {
+    const def = await this.getCrdDef(crdName)
+    const obj = def.namespaced
+      ? await this.customObjects.getNamespacedCustomObject({
+          group: def.group,
+          version: def.version,
+          namespace: namespace!,
+          plural: def.plural,
+          name
+        })
+      : await this.customObjects.getClusterCustomObject({
+          group: def.group,
+          version: def.version,
+          plural: def.plural,
+          name
+        })
+    return yaml.dump(cleanForYaml(obj as { metadata?: { managedFields?: unknown } }), { noRefs: true })
   }
 
   async getResourceYaml(

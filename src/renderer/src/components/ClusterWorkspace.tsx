@@ -3,6 +3,7 @@ import type { ClusterOverview, ResourceKind, ResourceRow, ResourceTableResult } 
 import Sidebar, { type ViewKind } from './Sidebar'
 import Overview from './Overview'
 import ResourceView from './ResourceView'
+import CustomResources from './CustomResources'
 import YamlPanel from './YamlPanel'
 import LogPanel from './LogPanel'
 
@@ -50,7 +51,7 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
   }, [contextName, view])
 
   useEffect(() => {
-    if (view === 'overview') return
+    if (view === 'overview' || view === 'customresources') return
     setTableLoading(true)
     setTableError(null)
     window.api.listResources(contextName, view, namespace).then((res) => {
@@ -60,9 +61,14 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
     })
   }, [contextName, view, namespace])
 
+  const [crdBrowserKey, setCrdBrowserKey] = useState(0)
+
   const onSelectView = (v: ViewKind): void => {
     setView(v)
     setTable(null)
+    // Re-clicking "Custom Resources" while already drilled into one CRD's instances should
+    // return to the group picker -- force a remount since the view itself isn't changing.
+    if (v === 'customresources') setCrdBrowserKey((k) => k + 1)
   }
 
   const onSelectRow = (kind: ResourceKind, row: ResourceRow): void => {
@@ -84,6 +90,8 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
       <div className="flex-1 overflow-hidden">
         {view === 'overview' ? (
           <Overview overview={overview} loading={overviewLoading} error={overviewError} />
+        ) : view === 'customresources' ? (
+          <CustomResources key={crdBrowserKey} contextName={contextName} namespaces={namespaces} />
         ) : (
           <ResourceView
             kind={view}

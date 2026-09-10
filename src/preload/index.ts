@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ClusterOverview,
   ContextInfo,
+  CrdGroups,
   LogStreamRequest,
   ResourceKind,
   ResourceTableResult,
@@ -29,6 +30,21 @@ const api = {
     ipcRenderer.invoke('k8s:getResourceYaml', contextName, kind, namespace, name),
   listPodContainers: (contextName: string, namespace: string, pod: string): Promise<Result<string[]>> =>
     ipcRenderer.invoke('k8s:listPodContainers', contextName, namespace, pod),
+
+  listCrds: (contextName: string): Promise<Result<CrdGroups>> => ipcRenderer.invoke('k8s:listCrds', contextName),
+  listCrdInstances: (
+    contextName: string,
+    crdName: string,
+    namespace: string
+  ): Promise<Result<ResourceTableResult>> =>
+    ipcRenderer.invoke('k8s:listCrdInstances', contextName, crdName, namespace),
+  getCrdInstanceYaml: (
+    contextName: string,
+    crdName: string,
+    namespace: string | undefined,
+    name: string
+  ): Promise<Result<string>> =>
+    ipcRenderer.invoke('k8s:getCrdInstanceYaml', contextName, crdName, namespace, name),
 
   startLogStream: (contextName: string, req: LogStreamRequest): Promise<void> =>
     ipcRenderer.invoke('logs:start', contextName, req),

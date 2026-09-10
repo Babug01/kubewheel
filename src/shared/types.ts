@@ -72,6 +72,18 @@ export interface ResourceTableResult {
   rows: ResourceRow[]
 }
 
+export interface CrdInfo {
+  name: string
+  group: string
+  version: string
+  kind: string
+  plural: string
+  namespaced: boolean
+}
+
+// group -> CRDs in that group, for the grouped Custom Resources sidebar (mirrors `kubectl api-resources`).
+export type CrdGroups = Record<string, CrdInfo[]>
+
 export interface PodContainerInfo {
   name: string
   isInit: boolean
