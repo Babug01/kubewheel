@@ -5,14 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {
-    // @kubernetes/client-node ships ESM-only. It's kept external (see below) and loaded via a
-    // real dynamic import() at runtime instead of require() -- so keep genuine import()
-    // expressions in the CJS output rather than letting Rollup downgrade them to require().
-    build: {
-      rollupOptions: {
-        output: { dynamicImportInCjs: false }
-      }
-    },
+    // package.json has "type": "module", so electron-vite builds main/preload as real ESM --
+    // @kubernetes/client-node (ESM-only) can then be imported normally, no CJS interop needed.
     plugins: [externalizeDepsPlugin()]
   },
   preload: {

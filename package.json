@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "A lightweight, read-only Kubernetes cluster viewer for any cloud or on-prem cluster in your kubeconfig",
   "main": "./out/main/index.js",
+  "type": "module",
   "author": "Babu Ganesan",
   "license": "MIT",
   "private": true,

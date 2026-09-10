@@ -1,9 +1,10 @@
-import type {
+import {
   KubeConfig,
   CoreV1Api,
   AppsV1Api,
   NetworkingV1Api,
-  VersionApi
+  VersionApi,
+  Log
 } from '@kubernetes/client-node'
 import * as yaml from 'js-yaml'
 import { Writable } from 'stream'
@@ -26,15 +27,6 @@ import {
   podStatusPhase
 } from './format'
 
-// @kubernetes/client-node ships ESM-only, so it's loaded via a real dynamic import() rather
-// than a static import -- see the matching electron.vite.config.ts main-process build option.
-type KubeNodeModule = typeof import('@kubernetes/client-node')
-let kubeNodeModule: KubeNodeModule | null = null
-async function loadKubeNodeModule(): Promise<KubeNodeModule> {
-  if (!kubeNodeModule) kubeNodeModule = await import('@kubernetes/client-node')
-  return kubeNodeModule
-}
-
 // Strips the noisy, rarely-useful managedFields block before rendering YAML.
 function cleanForYaml<T extends { metadata?: { managedFields?: unknown } }>(obj: T): T {
   const clone = structuredClone(obj)
@@ -56,28 +48,23 @@ function redactSecret(obj: {
 }
 
 export class KubeManager {
-  private kc: KubeConfig
+  private kc = new KubeConfig()
   private core!: CoreV1Api
   private apps!: AppsV1Api
   private net!: NetworkingV1Api
   private version!: VersionApi
   private activeLogStreams = new Map<string, AbortController>()
 
-  private constructor(private mod: KubeNodeModule) {
-    this.kc = new mod.KubeConfig()
+  constructor() {
     this.kc.loadFromDefault()
     this.buildClients()
   }
 
-  static async create(): Promise<KubeManager> {
-    return new KubeManager(await loadKubeNodeModule())
-  }
-
   private buildClients(): void {
-    this.core = this.kc.makeApiClient(this.mod.CoreV1Api)
-    this.apps = this.kc.makeApiClient(this.mod.AppsV1Api)
-    this.net = this.kc.makeApiClient(this.mod.NetworkingV1Api)
-    this.version = this.kc.makeApiClient(this.mod.VersionApi)
+    this.core = this.kc.makeApiClient(CoreV1Api)
+    this.apps = this.kc.makeApiClient(AppsV1Api)
+    this.net = this.kc.makeApiClient(NetworkingV1Api)
+    this.version = this.kc.makeApiClient(VersionApi)
   }
 
   listContexts(): ContextInfo[] {
@@ -439,7 +426,7 @@ export class KubeManager {
     onEnd: () => void,
     onError: (message: string) => void
   ): Promise<void> {
-    const log = new this.mod.Log(this.kc)
+    const log = new Log(this.kc)
     const sink = new Writable({
       write: (chunk, _enc, cb) => {
         onData(chunk.toString('utf8'))

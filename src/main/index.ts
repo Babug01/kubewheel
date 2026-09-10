@@ -5,12 +5,10 @@ import type { LogStreamRequest, Result, ResourceKind } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
 let kube: KubeManager | null = null
-let kubeInit: Promise<KubeManager> | null = null
 
-function getKube(): Promise<KubeManager> {
-  if (kube) return Promise.resolve(kube)
-  if (!kubeInit) kubeInit = KubeManager.create().then((k) => (kube = k))
-  return kubeInit
+function getKube(): KubeManager {
+  if (!kube) kube = new KubeManager()
+  return kube
 }
 
 async function withResult<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
@@ -22,38 +20,35 @@ async function withResult<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle('k8s:listContexts', () => withResult(async () => (await getKube()).listContexts()))
+  ipcMain.handle('k8s:listContexts', () => withResult(() => getKube().listContexts()))
 
   ipcMain.handle('k8s:setContext', (_e, name: string) =>
-    withResult(async () => {
-      ;(await getKube()).setContext(name)
+    withResult(() => {
+      getKube().setContext(name)
     })
   )
 
-  ipcMain.handle('k8s:getOverview', () => withResult(async () => (await getKube()).getOverview()))
+  ipcMain.handle('k8s:getOverview', () => withResult(() => getKube().getOverview()))
 
-  ipcMain.handle('k8s:listNamespaces', () =>
-    withResult(async () => (await getKube()).listNamespaces())
-  )
+  ipcMain.handle('k8s:listNamespaces', () => withResult(() => getKube().listNamespaces()))
 
   ipcMain.handle('k8s:listResources', (_e, kind: ResourceKind, namespace: string) =>
-    withResult(async () => (await getKube()).listResources(kind, namespace as string | 'all'))
+    withResult(() => getKube().listResources(kind, namespace as string | 'all'))
   )
 
   ipcMain.handle(
     'k8s:getResourceYaml',
     (_e, kind: ResourceKind, namespace: string | undefined, name: string) =>
-      withResult(async () => (await getKube()).getResourceYaml(kind, namespace, name))
+      withResult(() => getKube().getResourceYaml(kind, namespace, name))
   )
 
   ipcMain.handle('k8s:listPodContainers', (_e, namespace: string, pod: string) =>
-    withResult(async () => (await getKube()).listPodContainers(namespace, pod))
+    withResult(() => getKube().listPodContainers(namespace, pod))
   )
 
-  ipcMain.handle('logs:start', async (event, req: LogStreamRequest) => {
+  ipcMain.handle('logs:start', (event, req: LogStreamRequest) => {
     const sender = event.sender
-    const manager = await getKube()
-    return manager.streamLogs(
+    return getKube().streamLogs(
       req.requestId,
       req.namespace,
       req.pod,
@@ -66,8 +61,8 @@ function registerIpcHandlers(): void {
     )
   })
 
-  ipcMain.handle('logs:stop', async (_e, requestId: string) => {
-    ;(await getKube()).stopLogs(requestId)
+  ipcMain.handle('logs:stop', (_e, requestId: string) => {
+    getKube().stopLogs(requestId)
   })
 }
 
@@ -78,7 +73,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false
     }
   })
