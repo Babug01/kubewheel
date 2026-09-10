@@ -14,6 +14,10 @@ running on a cluster and tailing pod logs, without the weight of a full IDE.
 - Multi-cluster tabs — open several clusters at once, each with its own independent connection;
   open tabs and favorites persist across restarts
 - Cluster overview — node list (status, roles, version, CPU/memory), Kubernetes version, pod/namespace counts
+- Live metrics — per-node and cluster-wide CPU/memory usage bars plus a rolling 2-minute sparkline,
+  read directly from `metrics.k8s.io` (no Prometheus needed, unlike Lens/Freelens' metrics — so it
+  works on clusters that have metrics-server but not a Prometheus stack). Degrades to a plain
+  "unavailable" note if metrics-server isn't installed, rather than breaking the rest of the view
 - Resource browser covering 31 kinds across Workloads (Pods, Deployments, ReplicaSets, StatefulSets,
   DaemonSets, Jobs, CronJobs), Config (ConfigMaps, Secrets, Resource Quotas, Limit Ranges, HPAs, Pod
   Disruption Budgets, Priority Classes, Leases), Network (Services, Endpoints, Endpoint Slices,

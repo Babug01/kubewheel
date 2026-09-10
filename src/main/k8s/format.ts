@@ -14,29 +14,63 @@ export function formatAge(timestamp?: Date | string): string {
   return `${years}y`
 }
 
-// Kubernetes memory quantities: Ki/Mi/Gi/Ti (binary) or k/M/G/T (decimal), or a bare byte count.
-export function formatMemory(qty?: string): string {
-  if (!qty) return '-'
+// Kubernetes memory quantities: Ki/Mi/Gi/Ti/Pi/Ei (binary) or k/M/G/T/P/E (decimal), or a bare byte count.
+export function parseMemBytes(qty?: string): number {
+  if (!qty) return 0
   const match = qty.match(/^(\d+(?:\.\d+)?)([EPTGMK]i?)?$/)
-  if (!match) return qty
+  if (!match) return 0
   const value = parseFloat(match[1])
   const unit = match[2] ?? ''
-  const binary: Record<string, number> = { Ki: 1024, Mi: 1024 ** 2, Gi: 1024 ** 3, Ti: 1024 ** 4 }
-  const decimal: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, T: 1e12 }
-  const bytes = value * (binary[unit] ?? decimal[unit] ?? 1)
+  const binary: Record<string, number> = {
+    Ki: 1024,
+    Mi: 1024 ** 2,
+    Gi: 1024 ** 3,
+    Ti: 1024 ** 4,
+    Pi: 1024 ** 5,
+    Ei: 1024 ** 6
+  }
+  const decimal: Record<string, number> = { K: 1e3, M: 1e6, G: 1e9, T: 1e12, P: 1e15, E: 1e18 }
+  return value * (binary[unit] ?? decimal[unit] ?? 1)
+}
+
+export function formatMemory(qty?: string): string {
+  if (!qty) return '-'
+  const bytes = parseMemBytes(qty)
   const gib = bytes / 1024 ** 3
   if (gib >= 1) return `${gib.toFixed(1)}Gi`
   const mib = bytes / 1024 ** 2
   return `${mib.toFixed(0)}Mi`
 }
 
-// Kubernetes CPU quantities: bare cores ("2"), millicores ("500m"), or fractional cores ("0.5").
+export function formatBytes(bytes: number): string {
+  const gib = bytes / 1024 ** 3
+  if (gib >= 1) return `${gib.toFixed(1)}Gi`
+  const mib = bytes / 1024 ** 2
+  return `${mib.toFixed(0)}Mi`
+}
+
+// Kubernetes CPU quantities: bare cores ("2"), millicores ("500m"), microcores ("500000u"), or
+// nanocores ("500000000n", the unit metrics-server reports usage in).
+export function parseCpuMilli(qty?: string): number {
+  if (!qty) return 0
+  if (qty.endsWith('n')) return parseFloat(qty) / 1e6
+  if (qty.endsWith('u')) return parseFloat(qty) / 1e3
+  if (qty.endsWith('m')) return parseFloat(qty)
+  const cores = parseFloat(qty)
+  return Number.isNaN(cores) ? 0 : cores * 1000
+}
+
 export function formatCpu(qty?: string): string {
   if (!qty) return '-'
   if (qty.endsWith('m')) return qty
   const cores = parseFloat(qty)
   if (Number.isNaN(cores)) return qty
   return `${cores}`
+}
+
+export function formatCpuMilli(milli: number): string {
+  if (milli < 1000) return `${Math.round(milli)}m`
+  return `${(milli / 1000).toFixed(2)}`
 }
 
 export function nodeRoles(labels?: Record<string, string>): string {

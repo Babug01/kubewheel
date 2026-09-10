@@ -32,6 +32,10 @@ function registerIpcHandlers(): void {
     withResult(() => getKube(contextName).getOverview())
   )
 
+  ipcMain.handle('k8s:getClusterMetrics', (_e, contextName: string) =>
+    withResult(() => getKube(contextName).getClusterMetrics())
+  )
+
   ipcMain.handle('k8s:listNamespaces', (_e, contextName: string) =>
     withResult(() => getKube(contextName).listNamespaces())
   )

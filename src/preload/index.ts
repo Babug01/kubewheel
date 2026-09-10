@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  ClusterMetricsPoint,
   ClusterOverview,
   ContextInfo,
   CrdGroups,
@@ -13,6 +14,8 @@ const api = {
   listContexts: (): Promise<Result<ContextInfo[]>> => ipcRenderer.invoke('k8s:listContexts'),
   getOverview: (contextName: string): Promise<Result<ClusterOverview>> =>
     ipcRenderer.invoke('k8s:getOverview', contextName),
+  getClusterMetrics: (contextName: string): Promise<Result<ClusterMetricsPoint>> =>
+    ipcRenderer.invoke('k8s:getClusterMetrics', contextName),
   listNamespaces: (contextName: string): Promise<Result<string[]>> =>
     ipcRenderer.invoke('k8s:listNamespaces', contextName),
   listResources: (

@@ -14,11 +14,13 @@ import {
   DiscoveryV1Api,
   ApiextensionsV1Api,
   CustomObjectsApi,
+  Metrics,
   Log
 } from '@kubernetes/client-node'
 import * as yaml from 'js-yaml'
 import { Writable } from 'stream'
 import type {
+  ClusterMetricsPoint,
   ClusterOverview,
   ContextInfo,
   CrdGroups,
@@ -34,6 +36,8 @@ import {
   formatMemory,
   nodeReadyStatus,
   nodeRoles,
+  parseCpuMilli,
+  parseMemBytes,
   podReadyCount,
   podRestartCount,
   podStatusPhase
@@ -134,6 +138,7 @@ export class KubeManager {
   private discovery!: DiscoveryV1Api
   private apiext!: ApiextensionsV1Api
   private customObjects!: CustomObjectsApi
+  private metrics!: Metrics
   private activeLogStreams = new Map<string, AbortController>()
 
   constructor(contextName: string) {
@@ -157,34 +162,88 @@ export class KubeManager {
     this.discovery = this.kc.makeApiClient(DiscoveryV1Api)
     this.apiext = this.kc.makeApiClient(ApiextensionsV1Api)
     this.customObjects = this.kc.makeApiClient(CustomObjectsApi)
+    this.metrics = new Metrics(this.kc)
+  }
+
+  // metrics-server is optional cluster infrastructure -- absent on plenty of real clusters (this
+  // one included), so every metrics call is best-effort and never fails the caller.
+  private async tryGetNodeMetrics(): Promise<Map<string, { cpuMilli: number; memBytes: number }> | null> {
+    try {
+      const list = await this.metrics.getNodeMetrics()
+      const byName = new Map<string, { cpuMilli: number; memBytes: number }>()
+      for (const item of list.items) {
+        byName.set(item.metadata.name, {
+          cpuMilli: parseCpuMilli(item.usage.cpu),
+          memBytes: parseMemBytes(item.usage.memory)
+        })
+      }
+      return byName
+    } catch {
+      return null
+    }
   }
 
   async getOverview(): Promise<ClusterOverview> {
-    const [versionInfo, nodeList, nsList, podList] = await Promise.all([
+    const [versionInfo, nodeList, nsList, podList, nodeMetrics] = await Promise.all([
       this.version.getCode(),
       this.core.listNode(),
       this.core.listNamespace(),
-      this.core.listPodForAllNamespaces()
+      this.core.listPodForAllNamespaces(),
+      this.tryGetNodeMetrics()
     ])
 
-    const nodes: NodeSummary[] = nodeList.items.map((n) => ({
-      name: n.metadata?.name ?? '-',
-      status: nodeReadyStatus(n.status?.conditions),
-      roles: nodeRoles(n.metadata?.labels),
-      version: n.status?.nodeInfo?.kubeletVersion ?? '-',
-      os: n.status?.nodeInfo?.osImage ?? '-',
-      internalIP: n.status?.addresses?.find((a) => a.type === 'InternalIP')?.address ?? '-',
-      cpu: formatCpu(n.status?.allocatable?.['cpu']),
-      memory: formatMemory(n.status?.allocatable?.['memory']),
-      age: formatAge(n.metadata?.creationTimestamp)
-    }))
+    const nodes: NodeSummary[] = nodeList.items.map((n) => {
+      const name = n.metadata?.name ?? '-'
+      const usage = nodeMetrics?.get(name)
+      const cpuAllocatable = parseCpuMilli(n.status?.allocatable?.['cpu'])
+      const memAllocatable = parseMemBytes(n.status?.allocatable?.['memory'])
+      return {
+        name,
+        status: nodeReadyStatus(n.status?.conditions),
+        roles: nodeRoles(n.metadata?.labels),
+        version: n.status?.nodeInfo?.kubeletVersion ?? '-',
+        os: n.status?.nodeInfo?.osImage ?? '-',
+        internalIP: n.status?.addresses?.find((a) => a.type === 'InternalIP')?.address ?? '-',
+        cpu: formatCpu(n.status?.allocatable?.['cpu']),
+        memory: formatMemory(n.status?.allocatable?.['memory']),
+        age: formatAge(n.metadata?.creationTimestamp),
+        cpuUsagePercent: usage && cpuAllocatable > 0 ? (usage.cpuMilli / cpuAllocatable) * 100 : null,
+        memUsagePercent: usage && memAllocatable > 0 ? (usage.memBytes / memAllocatable) * 100 : null
+      }
+    })
 
     return {
       contextName: this.kc.getCurrentContext(),
       version: versionInfo.gitVersion ?? '-',
       namespaceCount: nsList.items.length,
       podCount: podList.items.length,
-      nodes
+      nodes,
+      metricsAvailable: nodeMetrics !== null
+    }
+  }
+
+  async getClusterMetrics(): Promise<ClusterMetricsPoint> {
+    const [nodeList, nodeMetrics] = await Promise.all([this.core.listNode(), this.tryGetNodeMetrics()])
+    if (!nodeMetrics) return { available: false, cpuPercent: 0, memPercent: 0 }
+
+    let cpuUsed = 0
+    let memUsed = 0
+    let cpuAllocatable = 0
+    let memAllocatable = 0
+    for (const n of nodeList.items) {
+      const name = n.metadata?.name
+      const usage = name ? nodeMetrics.get(name) : undefined
+      if (!usage) continue
+      cpuUsed += usage.cpuMilli
+      memUsed += usage.memBytes
+      cpuAllocatable += parseCpuMilli(n.status?.allocatable?.['cpu'])
+      memAllocatable += parseMemBytes(n.status?.allocatable?.['memory'])
+    }
+
+    return {
+      available: true,
+      cpuPercent: cpuAllocatable > 0 ? (cpuUsed / cpuAllocatable) * 100 : 0,
+      memPercent: memAllocatable > 0 ? (memUsed / memAllocatable) * 100 : 0
     }
   }
 

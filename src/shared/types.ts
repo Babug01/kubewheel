@@ -18,6 +18,8 @@ export interface NodeSummary {
   cpu: string
   memory: string
   age: string
+  cpuUsagePercent: number | null
+  memUsagePercent: number | null
 }
 
 export interface ClusterOverview {
@@ -26,6 +28,13 @@ export interface ClusterOverview {
   namespaceCount: number
   podCount: number
   nodes: NodeSummary[]
+  metricsAvailable: boolean
+}
+
+export interface ClusterMetricsPoint {
+  available: boolean
+  cpuPercent: number
+  memPercent: number
 }
 
 export type ResourceKind =

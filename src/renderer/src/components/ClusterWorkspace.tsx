@@ -89,7 +89,7 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
 
       <div className="flex-1 overflow-hidden">
         {view === 'overview' ? (
-          <Overview overview={overview} loading={overviewLoading} error={overviewError} />
+          <Overview contextName={contextName} overview={overview} loading={overviewLoading} error={overviewError} />
         ) : view === 'customresources' ? (
           <CustomResources key={crdBrowserKey} contextName={contextName} namespaces={namespaces} />
         ) : (

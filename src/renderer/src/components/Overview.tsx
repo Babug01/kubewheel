@@ -1,23 +1,29 @@
 import type { ClusterOverview } from '@shared/types'
+import MetricsChart from './MetricsChart'
 
 interface Props {
+  contextName: string
   overview: ClusterOverview | null
   loading: boolean
   error: string | null
 }
 
-export default function Overview({ overview, loading, error }: Props): React.JSX.Element {
+export default function Overview({ contextName, overview, loading, error }: Props): React.JSX.Element {
   if (loading) return <div className="p-6 text-sm text-slate-500">Loading cluster overview...</div>
   if (error) return <div className="p-6 text-sm text-red-600">{error}</div>
   if (!overview) return <div className="p-6 text-sm text-slate-500">No data.</div>
 
   return (
-    <div className="p-6">
-      <div className="mb-6 grid grid-cols-4 gap-4">
+    <div className="overflow-auto p-6">
+      <div className="mb-4 grid grid-cols-4 gap-4">
         <StatCard label="Context" value={overview.contextName} />
         <StatCard label="Kubernetes version" value={overview.version} />
         <StatCard label="Namespaces" value={String(overview.namespaceCount)} />
         <StatCard label="Pods" value={String(overview.podCount)} />
+      </div>
+
+      <div className="mb-6">
+        <MetricsChart contextName={contextName} />
       </div>
 
       <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -27,7 +33,7 @@ export default function Overview({ overview, loading, error }: Props): React.JSX
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400">
             <tr>
-              {['Name', 'Status', 'Roles', 'Version', 'Internal IP', 'CPU', 'Memory', 'OS', 'Age'].map(
+              {['Name', 'Status', 'Roles', 'Version', 'Internal IP', 'CPU', 'CPU Usage', 'Memory', 'Mem Usage', 'OS', 'Age'].map(
                 (h) => (
                   <th key={h} className="px-3 py-2 font-medium">
                     {h}
@@ -55,7 +61,13 @@ export default function Overview({ overview, loading, error }: Props): React.JSX
                 <td className="px-3 py-2">{n.version}</td>
                 <td className="px-3 py-2">{n.internalIP}</td>
                 <td className="px-3 py-2">{n.cpu}</td>
+                <td className="px-3 py-2">
+                  <UsageBar percent={n.cpuUsagePercent} />
+                </td>
                 <td className="px-3 py-2">{n.memory}</td>
+                <td className="px-3 py-2">
+                  <UsageBar percent={n.memUsagePercent} />
+                </td>
                 <td className="max-w-[220px] truncate px-3 py-2" title={n.os}>
                   {n.os}
                 </td>
@@ -65,6 +77,20 @@ export default function Overview({ overview, loading, error }: Props): React.JSX
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+function UsageBar({ percent }: { percent: number | null }): React.JSX.Element {
+  if (percent === null) return <span className="text-slate-400">-</span>
+  const clamped = Math.min(100, Math.max(0, percent))
+  const color = clamped >= 90 ? 'bg-red-500' : clamped >= 75 ? 'bg-amber-500' : 'bg-accent-500'
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+        <div className={`h-full ${color}`} style={{ width: `${clamped}%` }} />
+      </div>
+      <span className="w-10 text-xs text-slate-500 dark:text-slate-400">{percent.toFixed(0)}%</span>
     </div>
   )
 }
