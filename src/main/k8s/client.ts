@@ -19,6 +19,7 @@ import {
 } from '@kubernetes/client-node'
 import * as yaml from 'js-yaml'
 import { Writable } from 'stream'
+import { gunzipSync } from 'zlib'
 import type {
   ClusterMetricsPoint,
   ClusterOverview,
@@ -84,6 +85,43 @@ function formatPrinterColumnValue(val: unknown, type?: string): string {
   if (type === 'date') return formatAge(val as string)
   if (typeof val === 'object') return JSON.stringify(val)
   return String(val)
+}
+
+interface HelmRelease {
+  name: string
+  namespace: string
+  version: number
+  chart?: { metadata?: { name?: string; version?: string; appVersion?: string } }
+  info?: { status?: string; first_deployed?: string; last_deployed?: string; description?: string; notes?: string }
+  config?: Record<string, unknown>
+}
+
+// Helm 3 stores each release revision as a Secret whose `data.release` value is
+// base64(gzip(base64(JSON))) -- the inner base64+JSON is Helm's own encodeRelease() output, the
+// outer base64 is just the standard k8s API wire encoding for Secret byte values.
+function decodeHelmRelease(wireBase64: string): HelmRelease {
+  const helmBase64 = Buffer.from(wireBase64, 'base64').toString('utf8')
+  const gzipped = Buffer.from(helmBase64, 'base64')
+  return JSON.parse(gunzipSync(gzipped).toString('utf8')) as HelmRelease
+}
+
+// Multiple revisions of the same release stay in the cluster as separate Secrets; only the
+// highest `version` label is the current one (mirrors `helm list`, which shows one row per release).
+function latestHelmSecrets<
+  T extends { metadata?: { name?: string; namespace?: string; labels?: Record<string, string> } }
+>(secrets: T[]): T[] {
+  const latest = new Map<string, (typeof secrets)[number]>()
+  for (const secret of secrets) {
+    const releaseName = secret.metadata?.labels?.name
+    const ns = secret.metadata?.namespace
+    if (!releaseName || !ns) continue
+    const key = `${ns}/${releaseName}`
+    const version = Number(secret.metadata?.labels?.version ?? 0)
+    const existing = latest.get(key)
+    const existingVersion = existing ? Number(existing.metadata?.labels?.version ?? 0) : -1
+    if (version > existingVersion) latest.set(key, secret)
+  }
+  return [...latest.values()]
 }
 
 // Shorthand for the common name/namespace/cells row shape used by every list method below.
@@ -1103,6 +1141,75 @@ export class KubeManager {
           name
         })
     return yaml.dump(cleanForYaml(obj as { metadata?: { managedFields?: unknown } }), { noRefs: true })
+  }
+
+  async listHelmReleases(namespace: string | 'all'): Promise<ResourceTableResult> {
+    const list =
+      namespace === 'all'
+        ? await this.core.listSecretForAllNamespaces({ labelSelector: 'owner=helm' })
+        : await this.core.listNamespacedSecret({ namespace, labelSelector: 'owner=helm' })
+
+    const rows: ResourceRow[] = []
+    for (const secret of latestHelmSecrets(list.items)) {
+      try {
+        const release = decodeHelmRelease(secret.data?.release ?? '')
+        rows.push({
+          name: release.name,
+          namespace: secret.metadata?.namespace,
+          cells: {
+            chart: release.chart?.metadata?.name ?? '-',
+            chartVersion: release.chart?.metadata?.version ?? '-',
+            appVersion: release.chart?.metadata?.appVersion ?? '-',
+            revision: String(release.version ?? '-'),
+            status: release.info?.status ?? '-',
+            updated: formatAge(release.info?.last_deployed)
+          }
+        })
+      } catch {
+        // A release secret we can't decode (unexpected format, corrupted) shouldn't break the
+        // rest of the list -- just skip it.
+      }
+    }
+
+    return {
+      columns: [
+        { key: 'chart', label: 'Chart' },
+        { key: 'chartVersion', label: 'Chart Version' },
+        { key: 'appVersion', label: 'App Version' },
+        { key: 'revision', label: 'Revision' },
+        { key: 'status', label: 'Status' },
+        { key: 'updated', label: 'Updated' }
+      ],
+      rows
+    }
+  }
+
+  async getHelmReleaseYaml(namespace: string, name: string): Promise<string> {
+    const list = await this.core.listNamespacedSecret({
+      namespace,
+      labelSelector: `owner=helm,name=${name}`
+    })
+    const [latestSecret] = latestHelmSecrets(list.items)
+    if (!latestSecret) throw new Error(`Helm release "${name}" not found in namespace "${namespace}"`)
+
+    const release = decodeHelmRelease(latestSecret.data?.release ?? '')
+    return yaml.dump(
+      {
+        name: release.name,
+        namespace: release.namespace,
+        chart: release.chart?.metadata?.name,
+        chartVersion: release.chart?.metadata?.version,
+        appVersion: release.chart?.metadata?.appVersion,
+        revision: release.version,
+        status: release.info?.status,
+        firstDeployed: release.info?.first_deployed,
+        lastDeployed: release.info?.last_deployed,
+        description: release.info?.description,
+        notes: release.info?.notes,
+        values: release.config ?? {}
+      },
+      { noRefs: true }
+    )
   }
 
   async getResourceYaml(

@@ -4,6 +4,7 @@ import Sidebar, { type ViewKind } from './Sidebar'
 import Overview from './Overview'
 import ResourceView from './ResourceView'
 import CustomResources from './CustomResources'
+import HelmReleases from './HelmReleases'
 import YamlPanel from './YamlPanel'
 import LogPanel from './LogPanel'
 
@@ -51,7 +52,7 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
   }, [contextName, view])
 
   useEffect(() => {
-    if (view === 'overview' || view === 'customresources') return
+    if (view === 'overview' || view === 'customresources' || view === 'helmreleases') return
     setTableLoading(true)
     setTableError(null)
     window.api.listResources(contextName, view, namespace).then((res) => {
@@ -92,6 +93,8 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
           <Overview contextName={contextName} overview={overview} loading={overviewLoading} error={overviewError} />
         ) : view === 'customresources' ? (
           <CustomResources key={crdBrowserKey} contextName={contextName} namespaces={namespaces} />
+        ) : view === 'helmreleases' ? (
+          <HelmReleases contextName={contextName} namespaces={namespaces} />
         ) : (
           <ResourceView
             kind={view}

@@ -49,6 +49,11 @@ const api = {
   ): Promise<Result<string>> =>
     ipcRenderer.invoke('k8s:getCrdInstanceYaml', contextName, crdName, namespace, name),
 
+  listHelmReleases: (contextName: string, namespace: string): Promise<Result<ResourceTableResult>> =>
+    ipcRenderer.invoke('k8s:listHelmReleases', contextName, namespace),
+  getHelmReleaseYaml: (contextName: string, namespace: string, name: string): Promise<Result<string>> =>
+    ipcRenderer.invoke('k8s:getHelmReleaseYaml', contextName, namespace, name),
+
   startLogStream: (contextName: string, req: LogStreamRequest): Promise<void> =>
     ipcRenderer.invoke('logs:start', contextName, req),
   stopLogStream: (contextName: string, requestId: string): Promise<void> =>

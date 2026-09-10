@@ -70,6 +70,14 @@ function registerIpcHandlers(): void {
       withResult(() => getKube(contextName).getCrdInstanceYaml(crdName, namespace, name))
   )
 
+  ipcMain.handle('k8s:listHelmReleases', (_e, contextName: string, namespace: string) =>
+    withResult(() => getKube(contextName).listHelmReleases(namespace as string | 'all'))
+  )
+
+  ipcMain.handle('k8s:getHelmReleaseYaml', (_e, contextName: string, namespace: string, name: string) =>
+    withResult(() => getKube(contextName).getHelmReleaseYaml(namespace, name))
+  )
+
   ipcMain.handle('logs:start', (event, contextName: string, req: LogStreamRequest) => {
     const sender = event.sender
     return getKube(contextName).streamLogs(

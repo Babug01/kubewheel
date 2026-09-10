@@ -29,9 +29,15 @@ running on a cluster and tailing pod logs, without the weight of a full IDE.
   Instance tables use the CRD's own `additionalPrinterColumns` (the same schema `kubectl get`
   reads), including the common `conditions[?(@.type=="X")]` filter pattern used by cert-manager,
   ArgoCD, and most controllers for their Ready/Status columns — not a generic Name/Age table
+- Helm Releases — decodes the release Secrets Helm 3 stores in-cluster directly (no `helm` binary
+  needed), showing chart, versions, revision, and status; click through to the release's values
+  and metadata as YAML
 - YAML detail view for any resource (managed-fields stripped for readability; Secret values are
   always redacted — keys are shown, values never are)
 - Live pod log viewer — container picker, tail length, follow/stream toggle
+- Collapsible sidebar groups (Workloads/Config/Network/Storage/Access Control), remembering which
+  are open and auto-expanding whichever holds the active view — the whole nav fits one window
+  instead of a long scroll
 
 Nothing here mutates the cluster — no edit, no delete, no exec, no scale. It only ever issues
 `get`/`list` calls against the Kubernetes API. (Mutating actions and an exec terminal are on the
