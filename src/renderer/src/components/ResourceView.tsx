@@ -36,14 +36,14 @@ export default function ResourceView({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-gray-200 px-6 py-3 dark:border-gray-800">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+      <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {RESOURCE_KIND_LABELS[kind]}
         </h2>
         <select
           value={namespace}
           onChange={(e) => onNamespaceChange(e.target.value)}
-          className="rounded border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          className="rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         >
           <option value="all">All namespaces</option>
           {namespaces.map((ns) => (
@@ -56,24 +56,24 @@ export default function ResourceView({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Filter by name..."
-          className="ml-auto w-64 rounded border border-gray-300 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          className="ml-auto w-64 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
         {table && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-slate-400">
             {rows.length} / {table.rows.length}
           </span>
         )}
       </div>
 
       <div className="flex-1 overflow-auto px-6 py-3">
-        {loading && <div className="text-sm text-gray-500">Loading...</div>}
+        {loading && <div className="text-sm text-slate-500">Loading...</div>}
         {error && <div className="text-sm text-red-600">{error}</div>}
         {!loading && !error && table && rows.length === 0 && (
-          <div className="text-sm text-gray-500">No resources found.</div>
+          <div className="text-sm text-slate-500">No resources found.</div>
         )}
         {!loading && !error && table && rows.length > 0 && (
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-100 text-xs uppercase text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+            <thead className="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400">
               <tr>
                 <th className="px-3 py-2 font-medium">Name</th>
                 {namespace === 'all' && <th className="px-3 py-2 font-medium">Namespace</th>}
@@ -89,7 +89,7 @@ export default function ResourceView({
               {rows.map((row) => (
                 <tr
                   key={`${row.namespace ?? ''}/${row.name}`}
-                  className="cursor-pointer border-t border-gray-100 hover:bg-indigo-50 dark:border-gray-800 dark:hover:bg-gray-900"
+                  className="cursor-pointer border-t border-slate-100 hover:bg-accent-50 dark:border-slate-800 dark:hover:bg-slate-900"
                   onClick={() => onSelectRow(row)}
                 >
                   <td className="px-3 py-2 font-medium">{row.name}</td>
@@ -106,7 +106,7 @@ export default function ResourceView({
                           e.stopPropagation()
                           onViewLogs?.(row)
                         }}
-                        className="rounded bg-indigo-600 px-2 py-0.5 text-xs text-white hover:bg-indigo-500"
+                        className="rounded bg-accent-600 px-2 py-0.5 text-xs text-white hover:bg-accent-500"
                       >
                         Logs
                       </button>

@@ -7,9 +7,9 @@ interface Props {
 }
 
 export default function Overview({ overview, loading, error }: Props): React.JSX.Element {
-  if (loading) return <div className="p-6 text-sm text-gray-500">Loading cluster overview...</div>
+  if (loading) return <div className="p-6 text-sm text-slate-500">Loading cluster overview...</div>
   if (error) return <div className="p-6 text-sm text-red-600">{error}</div>
-  if (!overview) return <div className="p-6 text-sm text-gray-500">No data.</div>
+  if (!overview) return <div className="p-6 text-sm text-slate-500">No data.</div>
 
   return (
     <div className="p-6">
@@ -20,12 +20,12 @@ export default function Overview({ overview, loading, error }: Props): React.JSX
         <StatCard label="Pods" value={String(overview.podCount)} />
       </div>
 
-      <h2 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+      <h2 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
         Nodes ({overview.nodes.length})
       </h2>
-      <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-800">
+      <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-800">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-100 text-xs uppercase text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+          <thead className="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-900 dark:text-slate-400">
             <tr>
               {['Name', 'Status', 'Roles', 'Version', 'Internal IP', 'CPU', 'Memory', 'OS', 'Age'].map(
                 (h) => (
@@ -38,7 +38,7 @@ export default function Overview({ overview, loading, error }: Props): React.JSX
           </thead>
           <tbody>
             {overview.nodes.map((n) => (
-              <tr key={n.name} className="border-t border-gray-100 dark:border-gray-800">
+              <tr key={n.name} className="border-t border-slate-100 dark:border-slate-800">
                 <td className="px-3 py-2 font-medium">{n.name}</td>
                 <td className="px-3 py-2">
                   <span
@@ -71,9 +71,9 @@ export default function Overview({ overview, loading, error }: Props): React.JSX
 
 function StatCard({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
-    <div className="rounded border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <div className="text-[11px] uppercase text-gray-400">{label}</div>
-      <div className="mt-1 truncate text-lg font-semibold text-gray-800 dark:text-gray-100" title={value}>
+    <div className="rounded border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="text-[11px] uppercase text-slate-400">{label}</div>
+      <div className="mt-1 truncate text-lg font-semibold text-slate-800 dark:text-slate-100" title={value}>
         {value}
       </div>
     </div>

@@ -47,6 +47,24 @@ function redactSecret(obj: {
   }
 }
 
+// Standalone, doesn't need a live cluster connection -- used by the catalog to list every
+// context in kubeconfig before any of them have been opened as a workspace.
+export function listKubeContexts(): ContextInfo[] {
+  const kc = new KubeConfig()
+  kc.loadFromDefault()
+  const current = kc.getCurrentContext()
+  return kc.getContexts().map((c) => ({
+    name: c.name,
+    cluster: c.cluster,
+    user: c.user,
+    namespace: c.namespace ?? 'default',
+    isCurrent: c.name === current
+  }))
+}
+
+// One instance per open cluster tab -- each owns an independent KubeConfig/client set bound to
+// a single context, so multiple clusters can be connected to at the same time without one
+// context switch affecting another tab's in-flight requests.
 export class KubeManager {
   private kc = new KubeConfig()
   private core!: CoreV1Api
@@ -55,8 +73,9 @@ export class KubeManager {
   private version!: VersionApi
   private activeLogStreams = new Map<string, AbortController>()
 
-  constructor() {
+  constructor(contextName: string) {
     this.kc.loadFromDefault()
+    this.kc.setCurrentContext(contextName)
     this.buildClients()
   }
 
@@ -65,22 +84,6 @@ export class KubeManager {
     this.apps = this.kc.makeApiClient(AppsV1Api)
     this.net = this.kc.makeApiClient(NetworkingV1Api)
     this.version = this.kc.makeApiClient(VersionApi)
-  }
-
-  listContexts(): ContextInfo[] {
-    const current = this.kc.getCurrentContext()
-    return this.kc.getContexts().map((c) => ({
-      name: c.name,
-      cluster: c.cluster,
-      user: c.user,
-      namespace: c.namespace ?? 'default',
-      isCurrent: c.name === current
-    }))
-  }
-
-  setContext(name: string): void {
-    this.kc.setCurrentContext(name)
-    this.buildClients()
   }
 
   async getOverview(): Promise<ClusterOverview> {

@@ -10,21 +10,30 @@ import type {
 
 const api = {
   listContexts: (): Promise<Result<ContextInfo[]>> => ipcRenderer.invoke('k8s:listContexts'),
-  setContext: (name: string): Promise<Result<void>> => ipcRenderer.invoke('k8s:setContext', name),
-  getOverview: (): Promise<Result<ClusterOverview>> => ipcRenderer.invoke('k8s:getOverview'),
-  listNamespaces: (): Promise<Result<string[]>> => ipcRenderer.invoke('k8s:listNamespaces'),
-  listResources: (kind: ResourceKind, namespace: string): Promise<Result<ResourceTableResult>> =>
-    ipcRenderer.invoke('k8s:listResources', kind, namespace),
+  getOverview: (contextName: string): Promise<Result<ClusterOverview>> =>
+    ipcRenderer.invoke('k8s:getOverview', contextName),
+  listNamespaces: (contextName: string): Promise<Result<string[]>> =>
+    ipcRenderer.invoke('k8s:listNamespaces', contextName),
+  listResources: (
+    contextName: string,
+    kind: ResourceKind,
+    namespace: string
+  ): Promise<Result<ResourceTableResult>> =>
+    ipcRenderer.invoke('k8s:listResources', contextName, kind, namespace),
   getResourceYaml: (
+    contextName: string,
     kind: ResourceKind,
     namespace: string | undefined,
     name: string
-  ): Promise<Result<string>> => ipcRenderer.invoke('k8s:getResourceYaml', kind, namespace, name),
-  listPodContainers: (namespace: string, pod: string): Promise<Result<string[]>> =>
-    ipcRenderer.invoke('k8s:listPodContainers', namespace, pod),
+  ): Promise<Result<string>> =>
+    ipcRenderer.invoke('k8s:getResourceYaml', contextName, kind, namespace, name),
+  listPodContainers: (contextName: string, namespace: string, pod: string): Promise<Result<string[]>> =>
+    ipcRenderer.invoke('k8s:listPodContainers', contextName, namespace, pod),
 
-  startLogStream: (req: LogStreamRequest): Promise<void> => ipcRenderer.invoke('logs:start', req),
-  stopLogStream: (requestId: string): Promise<void> => ipcRenderer.invoke('logs:stop', requestId),
+  startLogStream: (contextName: string, req: LogStreamRequest): Promise<void> =>
+    ipcRenderer.invoke('logs:start', contextName, req),
+  stopLogStream: (contextName: string, requestId: string): Promise<void> =>
+    ipcRenderer.invoke('logs:stop', contextName, requestId),
   onLogData: (cb: (data: { requestId: string; chunk: string }) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, data: { requestId: string; chunk: string }) =>
       cb(data)

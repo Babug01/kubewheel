@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
 interface Props {
+  contextName: string
   namespace: string
   pod: string
   onClose: () => void
 }
 
-export default function LogPanel({ namespace, pod, onClose }: Props): React.JSX.Element {
+export default function LogPanel({ contextName, namespace, pod, onClose }: Props): React.JSX.Element {
   const [containers, setContainers] = useState<string[]>([])
   const [container, setContainer] = useState<string>('')
   const [follow, setFollow] = useState(true)
@@ -18,7 +19,7 @@ export default function LogPanel({ namespace, pod, onClose }: Props): React.JSX.
 
   useEffect(() => {
     let cancelled = false
-    window.api.listPodContainers(namespace, pod).then((res) => {
+    window.api.listPodContainers(contextName, namespace, pod).then((res) => {
       if (cancelled) return
       if (res.ok) {
         setContainers(res.data)
@@ -30,7 +31,7 @@ export default function LogPanel({ namespace, pod, onClose }: Props): React.JSX.
     return () => {
       cancelled = true
     }
-  }, [namespace, pod])
+  }, [contextName, namespace, pod])
 
   useEffect(() => {
     if (!container) return
@@ -52,15 +53,15 @@ export default function LogPanel({ namespace, pod, onClose }: Props): React.JSX.
       setError(message)
     })
 
-    window.api.startLogStream({ requestId, namespace, pod, container, follow, tailLines })
+    window.api.startLogStream(contextName, { requestId, namespace, pod, container, follow, tailLines })
 
     return () => {
       offData()
       offEnd()
       offError()
-      window.api.stopLogStream(requestId)
+      window.api.stopLogStream(contextName, requestId)
     }
-  }, [namespace, pod, container, follow, tailLines])
+  }, [contextName, namespace, pod, container, follow, tailLines])
 
   useEffect(() => {
     if (logBoxRef.current) logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight
@@ -69,17 +70,17 @@ export default function LogPanel({ namespace, pod, onClose }: Props): React.JSX.
   return (
     <div className="fixed inset-0 z-20 flex justify-end bg-black/30" onClick={onClose}>
       <div
-        className="flex h-full w-[820px] max-w-full flex-col bg-white shadow-xl dark:bg-gray-950"
+        className="flex h-full w-[820px] max-w-full flex-col bg-white shadow-xl dark:bg-slate-950"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
-          <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+          <h3 className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
             {namespace}/{pod}
           </h3>
           <select
             value={container}
             onChange={(e) => setContainer(e.target.value)}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             {containers.map((c) => (
               <option key={c} value={c}>
@@ -87,29 +88,29 @@ export default function LogPanel({ namespace, pod, onClose }: Props): React.JSX.
               </option>
             ))}
           </select>
-          <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+          <label className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
             <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
             Follow
           </label>
-          <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+          <label className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
             Tail
             <input
               type="number"
               value={tailLines}
               onChange={(e) => setTailLines(Number(e.target.value) || 0)}
-              className="w-16 rounded border border-gray-300 bg-white px-1 py-0.5 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              className="w-16 rounded border border-slate-300 bg-white px-1 py-0.5 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
           <button
             onClick={onClose}
-            className="ml-auto rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="ml-auto rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             Close
           </button>
         </div>
-        <div className="flex-1 overflow-auto bg-gray-950 p-4">
+        <div className="flex-1 overflow-auto bg-slate-950 p-4">
           {error && <div className="mb-2 text-xs text-red-400">{error}</div>}
-          <pre ref={logBoxRef} className="mono h-full overflow-auto whitespace-pre-wrap text-xs text-gray-100">
+          <pre ref={logBoxRef} className="mono h-full overflow-auto whitespace-pre-wrap text-xs text-slate-100">
             {lines || 'Waiting for logs...'}
           </pre>
         </div>

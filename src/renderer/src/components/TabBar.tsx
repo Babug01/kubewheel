@@ -1,0 +1,61 @@
+interface Props {
+  tabs: string[]
+  activeTab: string | null
+  onSelect: (contextName: string | null) => void
+  onClose: (contextName: string) => void
+  dark: boolean
+  onToggleDark: () => void
+}
+
+export default function TabBar({ tabs, activeTab, onSelect, onClose, dark, onToggleDark }: Props): React.JSX.Element {
+  return (
+    <div className="flex h-10 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-1 dark:border-slate-800 dark:bg-slate-950">
+      <button
+        onClick={() => onSelect(null)}
+        className={`mr-1 flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium ${
+          activeTab === null
+            ? 'bg-accent-600 text-white'
+            : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800'
+        }`}
+        title="Cluster catalog"
+      >
+        Catalog
+      </button>
+
+      <div className="flex flex-1 items-center gap-1 overflow-x-auto">
+        {tabs.map((t) => (
+          <div
+            key={t}
+            onClick={() => onSelect(t)}
+            className={`flex h-8 max-w-[220px] shrink-0 cursor-pointer items-center gap-2 rounded px-3 text-sm ${
+              activeTab === t
+                ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-900 dark:text-slate-100'
+                : 'text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-800'
+            }`}
+            title={t}
+          >
+            <span className="truncate">{t}</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onClose(t)
+              }}
+              className="shrink-0 rounded px-1 text-xs text-slate-400 hover:bg-slate-300 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+              title="Close tab"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={onToggleDark}
+        className="mr-3 shrink-0 rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"
+        title="Toggle theme"
+      >
+        {dark ? 'Light' : 'Dark'}
+      </button>
+    </div>
+  )
+}

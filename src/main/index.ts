@@ -1,14 +1,20 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import { KubeManager } from './k8s/client'
+import { KubeManager, listKubeContexts } from './k8s/client'
 import type { LogStreamRequest, Result, ResourceKind } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
-let kube: KubeManager | null = null
+// One KubeManager per open cluster tab, keyed by context name, so several clusters can be
+// connected to at once without a context switch on one tab affecting another.
+const kubeManagers = new Map<string, KubeManager>()
 
-function getKube(): KubeManager {
-  if (!kube) kube = new KubeManager()
-  return kube
+function getKube(contextName: string): KubeManager {
+  let manager = kubeManagers.get(contextName)
+  if (!manager) {
+    manager = new KubeManager(contextName)
+    kubeManagers.set(contextName, manager)
+  }
+  return manager
 }
 
 async function withResult<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
@@ -20,35 +26,35 @@ async function withResult<T>(fn: () => Promise<T> | T): Promise<Result<T>> {
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle('k8s:listContexts', () => withResult(() => getKube().listContexts()))
+  ipcMain.handle('k8s:listContexts', () => withResult(() => listKubeContexts()))
 
-  ipcMain.handle('k8s:setContext', (_e, name: string) =>
-    withResult(() => {
-      getKube().setContext(name)
-    })
+  ipcMain.handle('k8s:getOverview', (_e, contextName: string) =>
+    withResult(() => getKube(contextName).getOverview())
   )
 
-  ipcMain.handle('k8s:getOverview', () => withResult(() => getKube().getOverview()))
+  ipcMain.handle('k8s:listNamespaces', (_e, contextName: string) =>
+    withResult(() => getKube(contextName).listNamespaces())
+  )
 
-  ipcMain.handle('k8s:listNamespaces', () => withResult(() => getKube().listNamespaces()))
-
-  ipcMain.handle('k8s:listResources', (_e, kind: ResourceKind, namespace: string) =>
-    withResult(() => getKube().listResources(kind, namespace as string | 'all'))
+  ipcMain.handle(
+    'k8s:listResources',
+    (_e, contextName: string, kind: ResourceKind, namespace: string) =>
+      withResult(() => getKube(contextName).listResources(kind, namespace as string | 'all'))
   )
 
   ipcMain.handle(
     'k8s:getResourceYaml',
-    (_e, kind: ResourceKind, namespace: string | undefined, name: string) =>
-      withResult(() => getKube().getResourceYaml(kind, namespace, name))
+    (_e, contextName: string, kind: ResourceKind, namespace: string | undefined, name: string) =>
+      withResult(() => getKube(contextName).getResourceYaml(kind, namespace, name))
   )
 
-  ipcMain.handle('k8s:listPodContainers', (_e, namespace: string, pod: string) =>
-    withResult(() => getKube().listPodContainers(namespace, pod))
+  ipcMain.handle('k8s:listPodContainers', (_e, contextName: string, namespace: string, pod: string) =>
+    withResult(() => getKube(contextName).listPodContainers(namespace, pod))
   )
 
-  ipcMain.handle('logs:start', (event, req: LogStreamRequest) => {
+  ipcMain.handle('logs:start', (event, contextName: string, req: LogStreamRequest) => {
     const sender = event.sender
-    return getKube().streamLogs(
+    return getKube(contextName).streamLogs(
       req.requestId,
       req.namespace,
       req.pod,
@@ -61,8 +67,8 @@ function registerIpcHandlers(): void {
     )
   })
 
-  ipcMain.handle('logs:stop', (_e, requestId: string) => {
-    getKube().stopLogs(requestId)
+  ipcMain.handle('logs:stop', (_e, contextName: string, requestId: string) => {
+    getKube(contextName).stopLogs(requestId)
   })
 }
 
