@@ -10,6 +10,19 @@ already uses (including `exec`-based plugins like `kubelogin`). Built as a light
 to Lens/Freelens for one use case: quickly browsing what's running on a cluster, without the weight
 of a full IDE.
 
+## Screenshots
+
+| Cluster catalog | Cluster overview |
+| --- | --- |
+| ![Cluster catalog, with Add Cluster and per-card Remove/Favorite controls](docs/screenshots/catalog.png) | ![Cluster overview with node list and live CPU/memory usage](docs/screenshots/overview.png) |
+
+| Resource browser |
+| --- |
+| ![Pods table across all namespaces, with red/green health-status coloring](docs/screenshots/resources.png) |
+
+*(Cluster, namespace, node, and IP names in these screenshots are synthetic placeholders, not real
+infrastructure.)*
+
 ## Download
 
 Grab the latest installer for your OS from the [Releases page](https://github.com/Babug01/kubewheel/releases):

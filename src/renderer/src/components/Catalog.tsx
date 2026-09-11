@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ContextInfo } from '@shared/types'
 import { loadFavorites, saveFavorites } from '../lib/favorites'
-import { loadExtraKubeconfigs } from '../lib/kubeconfigs'
+import { loadExtraKubeconfigs, saveExtraKubeconfigs } from '../lib/kubeconfigs'
 import { loadHiddenContexts, saveHiddenContexts } from '../lib/hiddenContexts'
 
 interface Props {
@@ -16,13 +16,37 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
   const [favorites, setFavorites] = useState<Set<string>>(() => loadFavorites())
   const [hidden, setHidden] = useState<Set<string>>(() => loadHiddenContexts())
   const [showHidden, setShowHidden] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
 
-  useEffect(() => {
+  const reloadContexts = (): void => {
     window.api.listContexts(loadExtraKubeconfigs()).then((res) => {
       if (res.ok) setContexts(res.data)
       else setError(res.error)
     })
+  }
+
+  useEffect(() => {
+    reloadContexts()
   }, [])
+
+  const addCluster = async (): Promise<void> => {
+    setAddError(null)
+    setAdding(true)
+    const res = await window.api.pickKubeconfig()
+    setAdding(false)
+    if (!res.ok) {
+      setAddError(res.error)
+      return
+    }
+    const path = res.data
+    if (!path) return
+    const existing = loadExtraKubeconfigs()
+    if (!existing.includes(path)) {
+      saveExtraKubeconfigs([...existing, path])
+    }
+    reloadContexts()
+  }
 
   const toggleFavorite = (name: string): void => {
     setFavorites((prev) => {
@@ -72,6 +96,14 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
           className="ml-auto w-72 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
         <button
+          onClick={addCluster}
+          disabled={adding}
+          className="rounded bg-accent-600 px-3 py-1.5 text-sm text-white hover:bg-accent-500 disabled:opacity-60"
+          title="Add another kubeconfig file to browse its clusters here"
+        >
+          {adding ? 'Adding...' : '+ Add Cluster'}
+        </button>
+        <button
           onClick={onOpenPreferences}
           className="rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
@@ -80,6 +112,11 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
       </div>
 
       <div className="flex-1 overflow-auto p-6">
+        {addError && (
+          <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            Could not add kubeconfig file: {addError}
+          </div>
+        )}
         {error && <div className="text-sm text-red-600">{error}</div>}
         {!error && !contexts && <div className="text-sm text-slate-500">Loading kubeconfig contexts...</div>}
         {!error && contexts && filtered.length === 0 && (
@@ -112,10 +149,14 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
                         e.stopPropagation()
                         toggleHidden(c.name)
                       }}
-                      className="text-xs leading-none text-slate-300 opacity-0 group-hover:opacity-100 hover:text-slate-500 dark:text-slate-700 dark:hover:text-slate-400"
-                      title={hidden.has(c.name) ? 'Unhide' : 'Hide from catalog'}
+                      className="rounded px-1.5 py-0.5 text-xs leading-none text-slate-400 hover:bg-slate-100 hover:text-red-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-red-400"
+                      title={
+                        hidden.has(c.name)
+                          ? 'Restore to catalog'
+                          : 'Remove from this list (does not touch your kubeconfig file)'
+                      }
                     >
-                      {hidden.has(c.name) ? 'Unhide' : 'Hide'}
+                      {hidden.has(c.name) ? 'Restore' : 'Remove'}
                     </button>
                     <button
                       onClick={(e) => {
@@ -161,7 +202,7 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
             onClick={() => setShowHidden((s) => !s)}
             className="mt-4 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
           >
-            {showHidden ? 'Hide hidden clusters again' : `Show ${hiddenCount} hidden cluster${hiddenCount === 1 ? '' : 's'}`}
+            {showHidden ? 'Hide removed clusters again' : `Show ${hiddenCount} removed cluster${hiddenCount === 1 ? '' : 's'}`}
           </button>
         )}
       </div>
