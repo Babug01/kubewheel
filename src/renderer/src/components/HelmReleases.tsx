@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ResourceRow, ResourceTableResult } from '@shared/types'
 import YamlPanel from './YamlPanel'
+import { renderCellValue } from './StatusCell'
 
 interface Props {
   contextName: string
@@ -106,7 +107,7 @@ export default function HelmReleases({ contextName, namespaces }: Props): React.
                   {namespace === 'all' && <td className="px-3 py-2">{r.namespace}</td>}
                   {table.columns.map((c) => (
                     <td key={c.key} className="max-w-[280px] truncate px-3 py-2" title={r.cells[c.key]}>
-                      {c.key === 'status' ? <StatusBadge value={r.cells[c.key]} /> : r.cells[c.key]}
+                      {renderCellValue(c.key, r.cells[c.key])}
                     </td>
                   ))}
                 </tr>
@@ -129,12 +130,3 @@ export default function HelmReleases({ contextName, namespaces }: Props): React.
   )
 }
 
-function StatusBadge({ value }: { value: string }): React.JSX.Element {
-  const color =
-    value === 'deployed'
-      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
-      : value === 'failed'
-        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-  return <span className={`rounded px-1.5 py-0.5 text-xs ${color}`}>{value}</span>
-}

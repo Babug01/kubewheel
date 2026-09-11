@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import TabBar from './components/TabBar'
 import Catalog from './components/Catalog'
 import ClusterWorkspace from './components/ClusterWorkspace'
+import { applyStoredAccent } from './components/ColorPicker'
 
 const OPEN_TABS_KEY = 'kll-open-tabs'
 
@@ -23,6 +24,10 @@ export default function App(): React.JSX.Element {
     document.documentElement.classList.toggle('dark', dark)
     localStorage.setItem('kll-dark', dark ? '1' : '0')
   }, [dark])
+
+  useEffect(() => {
+    applyStoredAccent()
+  }, [])
 
   useEffect(() => {
     try {

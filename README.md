@@ -1,6 +1,8 @@
-# Kube Lens Lite
+# Kubewheel ☸
 
-A small, read-only Kubernetes cluster viewer for Windows. Works against **any** cluster in your
+A small, read-only Kubernetes cluster viewer for Windows. The name and symbol come from
+Kubernetes' own etymology — the Greek *kybernetes* (helmsman/ship's pilot) is also where the
+wheel in the Kubernetes logo comes from. Works against **any** cluster in your
 kubeconfig — AKS, EKS, GKE, or a bare-metal `kubeadm` install — since it talks to the standard
 Kubernetes API via whatever auth your kubeconfig context already uses (including `exec`-based
 plugins like `kubelogin`).
@@ -35,9 +37,13 @@ running on a cluster and tailing pod logs, without the weight of a full IDE.
 - YAML detail view for any resource (managed-fields stripped for readability; Secret values are
   always redacted — keys are shown, values never are)
 - Live pod log viewer — container picker, tail length, follow/stream toggle
-- Collapsible sidebar groups (Workloads/Config/Network/Storage/Access Control), remembering which
-  are open and auto-expanding whichever holds the active view — the whole nav fits one window
-  instead of a long scroll
+- Collapsible sidebar groups (Cluster/Workloads/Config/Network/Storage/Access Control/Helm/Custom
+  Resources), remembering which are open and auto-expanding whichever holds the active view — the
+  whole nav fits one window instead of a long scroll
+- Health-colored status cells — bad states (CrashLoopBackOff, Failed, ImagePullBackOff, ...) and
+  not-fully-ready counts (`1/2`) are flagged red/amber across every table, including CRD and Helm
+  status columns, so problems are visible without reading every row
+- Six accent color presets, swapped at runtime via CSS custom properties (no rebuild needed)
 
 Nothing here mutates the cluster — no edit, no delete, no exec, no scale. It only ever issues
 `get`/`list` calls against the Kubernetes API. (Mutating actions and an exec terminal are on the

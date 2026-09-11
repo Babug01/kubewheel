@@ -1,3 +1,5 @@
+import ColorPicker from './ColorPicker'
+
 interface Props {
   tabs: string[]
   activeTab: string | null
@@ -10,6 +12,13 @@ interface Props {
 export default function TabBar({ tabs, activeTab, onSelect, onClose, dark, onToggleDark }: Props): React.JSX.Element {
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-1 dark:border-slate-800 dark:bg-slate-950">
+      <div className="mr-2 flex items-center gap-1.5 pl-2 pr-3 text-sm font-bold tracking-tight text-accent-600 dark:text-accent-400">
+        <span aria-hidden className="text-base leading-none">
+          &#9784;
+        </span>
+        <span>Kubewheel</span>
+      </div>
+
       <button
         onClick={() => onSelect(null)}
         className={`mr-1 flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium ${
@@ -47,6 +56,10 @@ export default function TabBar({ tabs, activeTab, onSelect, onClose, dark, onTog
             </button>
           </div>
         ))}
+      </div>
+
+      <div className="mr-2">
+        <ColorPicker />
       </div>
 
       <button

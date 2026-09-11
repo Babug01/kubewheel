@@ -1,5 +1,5 @@
-appId: dev.babug01.kubelenslite
-productName: Kube Lens Lite
+appId: dev.babug01.kubewheel
+productName: Kubewheel
 directories:
   buildResources: build
 files:

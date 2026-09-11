@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CrdGroups, CrdInfo, ResourceRow, ResourceTableResult } from '@shared/types'
 import YamlPanel from './YamlPanel'
+import { renderCellValue } from './StatusCell'
 
 interface Props {
   contextName: string
@@ -208,7 +209,7 @@ function CrdInstances({
                   {crd.namespaced && namespace === 'all' && <td className="px-3 py-2">{r.namespace}</td>}
                   {table.columns.map((c) => (
                     <td key={c.key} className="max-w-[280px] truncate px-3 py-2" title={r.cells[c.key]}>
-                      {r.cells[c.key]}
+                      {renderCellValue(c.key, r.cells[c.key])}
                     </td>
                   ))}
                 </tr>

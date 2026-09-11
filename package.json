@@ -1,5 +1,5 @@
 {
-  "name": "kube-lens-lite",
+  "name": "kubewheel",
   "version": "0.1.0",
   "description": "A lightweight, read-only Kubernetes cluster viewer for any cloud or on-prem cluster in your kubeconfig",
   "main": "./out/main/index.js",

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ResourceKind, ResourceRow, ResourceTableResult } from '@shared/types'
 import { RESOURCE_KIND_LABELS, RESOURCE_KIND_NAMESPACED } from '@shared/types'
+import { renderCellValue } from './StatusCell'
 
 interface Props {
   kind: ResourceKind
@@ -99,7 +100,7 @@ export default function ResourceView({
                   {namespaced && namespace === 'all' && <td className="px-3 py-2">{row.namespace}</td>}
                   {table.columns.map((c) => (
                     <td key={c.key} className="max-w-[280px] truncate px-3 py-2" title={row.cells[c.key]}>
-                      {row.cells[c.key]}
+                      {renderCellValue(c.key, row.cells[c.key])}
                     </td>
                   ))}
                   {kind === 'pods' && (
