@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ResourceKind } from '@shared/types'
 import { RESOURCE_KIND_LABELS } from '@shared/types'
 
@@ -8,6 +8,7 @@ interface Props {
   contextName: string
   view: ViewKind
   onSelectView: (view: ViewKind) => void
+  readOnly: boolean
 }
 
 interface NavGroup {
@@ -75,8 +76,17 @@ function groupLabelFor(view: ViewKind): string | null {
   return GROUPS.find((g) => g.items.some((i) => i.key === view))?.label ?? null
 }
 
-export default function Sidebar({ contextName, view, onSelectView }: Props): React.JSX.Element {
+export default function Sidebar({ contextName, view, onSelectView, readOnly }: Props): React.JSX.Element {
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => loadOpenGroups())
+  const [search, setSearch] = useState('')
+
+  const filteredGroups = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return GROUPS
+    return GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => i.label.toLowerCase().includes(q)) })).filter(
+      (g) => g.items.length > 0
+    )
+  }, [search])
 
   // Whichever group holds the active view should always be visibly expanded.
   useEffect(() => {
@@ -115,9 +125,18 @@ export default function Sidebar({ contextName, view, onSelectView }: Props): Rea
         </div>
       </div>
 
+      <div className="px-3 pb-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter resource kinds..."
+          className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </div>
+
       <nav className="mt-1 flex-1 overflow-y-auto px-2">
-        {GROUPS.map((group) => {
-          const isOpen = openGroups.has(group.label)
+        {filteredGroups.map((group) => {
+          const isOpen = search.trim() ? true : openGroups.has(group.label)
           const hasActive = groupLabelFor(view) === group.label
           return (
             <div key={group.label} className="mt-1">
@@ -149,7 +168,9 @@ export default function Sidebar({ contextName, view, onSelectView }: Props): Rea
         })}
       </nav>
 
-      <div className="px-3 py-2 text-[11px] text-slate-400">Read-only viewer</div>
+      <div className="px-3 py-2 text-[11px] text-slate-400">
+        {readOnly ? 'Read-only viewer' : 'Mutations unlocked'}
+      </div>
     </div>
   )
 }

@@ -42,6 +42,34 @@ const api = {
   listPodContainers: (contextName: string, namespace: string, pod: string): Promise<Result<string[]>> =>
     ipcRenderer.invoke('k8s:listPodContainers', contextName, namespace, pod),
 
+  getReadOnlyMode: (): Promise<Result<boolean>> => ipcRenderer.invoke('settings:getReadOnlyMode'),
+  setReadOnlyMode: (value: boolean): Promise<Result<void>> =>
+    ipcRenderer.invoke('settings:setReadOnlyMode', value),
+  applyResourceYaml: (
+    contextName: string,
+    kind: ResourceKind,
+    namespace: string | undefined,
+    name: string,
+    yamlText: string
+  ): Promise<Result<void>> =>
+    ipcRenderer.invoke('k8s:applyResourceYaml', contextName, kind, namespace, name, yamlText),
+  deleteResource: (
+    contextName: string,
+    kind: ResourceKind,
+    namespace: string | undefined,
+    name: string
+  ): Promise<Result<void>> => ipcRenderer.invoke('k8s:deleteResource', contextName, kind, namespace, name),
+  scaleResource: (
+    contextName: string,
+    kind: ResourceKind,
+    namespace: string,
+    name: string,
+    replicas: number
+  ): Promise<Result<void>> =>
+    ipcRenderer.invoke('k8s:scaleResource', contextName, kind, namespace, name, replicas),
+  restartResource: (contextName: string, kind: ResourceKind, namespace: string, name: string): Promise<Result<void>> =>
+    ipcRenderer.invoke('k8s:restartResource', contextName, kind, namespace, name),
+
   getSecretDetail: (contextName: string, namespace: string, name: string): Promise<Result<SecretDetail>> =>
     ipcRenderer.invoke('k8s:getSecretDetail', contextName, namespace, name),
 

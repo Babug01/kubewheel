@@ -11,6 +11,18 @@ let mainWindow: BrowserWindow | null = null
 // which file to load from.
 const kubeManagers = new Map<string, KubeManager>()
 
+// Global, in-memory only -- deliberately NOT persisted to localStorage/disk, so every app launch
+// starts back in read-only mode regardless of what it was set to last session. The alternative
+// (remembering "unlocked") risks someone coming back days later out of habit, forgetting they'd
+// left mutations on, and fat-fingering a change against a production cluster.
+let readOnlyMode = true
+
+function assertMutable(): void {
+  if (readOnlyMode) {
+    throw new Error('Read-only mode is on -- unlock mutations from the tab bar toggle first.')
+  }
+}
+
 function getKube(contextName: string): KubeManager {
   let manager = kubeManagers.get(contextName)
   if (!manager) {
@@ -103,6 +115,50 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle('k8s:listPodContainers', (_e, contextName: string, namespace: string, pod: string) =>
     withResult(() => getKube(contextName).listPodContainers(namespace, pod))
+  )
+
+  ipcMain.handle('settings:getReadOnlyMode', () => withResult(() => readOnlyMode))
+
+  ipcMain.handle('settings:setReadOnlyMode', (_e, value: boolean) =>
+    withResult(() => {
+      readOnlyMode = value
+    })
+  )
+
+  ipcMain.handle(
+    'k8s:applyResourceYaml',
+    (_e, contextName: string, kind: ResourceKind, namespace: string | undefined, name: string, yamlText: string) =>
+      withResult(() => {
+        assertMutable()
+        return getKube(contextName).applyResourceYaml(kind, namespace, name, yamlText)
+      })
+  )
+
+  ipcMain.handle(
+    'k8s:deleteResource',
+    (_e, contextName: string, kind: ResourceKind, namespace: string | undefined, name: string) =>
+      withResult(() => {
+        assertMutable()
+        return getKube(contextName).deleteResource(kind, namespace, name)
+      })
+  )
+
+  ipcMain.handle(
+    'k8s:scaleResource',
+    (_e, contextName: string, kind: ResourceKind, namespace: string, name: string, replicas: number) =>
+      withResult(() => {
+        assertMutable()
+        return getKube(contextName).scaleResource(kind, namespace, name, replicas)
+      })
+  )
+
+  ipcMain.handle(
+    'k8s:restartResource',
+    (_e, contextName: string, kind: ResourceKind, namespace: string, name: string) =>
+      withResult(() => {
+        assertMutable()
+        return getKube(contextName).restartResource(kind, namespace, name)
+      })
   )
 
   ipcMain.handle('k8s:getSecretDetail', (_e, contextName: string, namespace: string, name: string) =>

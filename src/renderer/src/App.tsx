@@ -25,6 +25,18 @@ export default function App(): React.JSX.Element {
   const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [catalogKey, setCatalogKey] = useState(0)
   const [openError, setOpenError] = useState<string | null>(null)
+  const [readOnly, setReadOnly] = useState(true)
+
+  useEffect(() => {
+    window.api.getReadOnlyMode().then((res) => {
+      if (res.ok) setReadOnly(res.data)
+    })
+  }, [])
+
+  const setUnlocked = async (unlocked: boolean): Promise<void> => {
+    const res = await window.api.setReadOnlyMode(!unlocked)
+    if (res.ok) setReadOnly(!unlocked)
+  }
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -86,7 +98,15 @@ export default function App(): React.JSX.Element {
         onClose={closeTab}
         dark={dark}
         onToggleDark={() => setDark((d) => !d)}
+        readOnly={readOnly}
+        onSetUnlocked={setUnlocked}
       />
+
+      {!readOnly && (
+        <div className="flex items-center justify-center bg-amber-500 px-4 py-1 text-xs font-semibold text-amber-950">
+          Mutations unlocked -- edits, deletes, scaling, and restarts on this cluster will take effect immediately.
+        </div>
+      )}
 
       {openError && (
         <div className="flex items-center justify-between bg-red-50 px-4 py-1.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
@@ -105,7 +125,7 @@ export default function App(): React.JSX.Element {
             <Catalog key={catalogKey} onOpen={openTab} onOpenPreferences={() => setPreferencesOpen(true)} />
           )
         ) : (
-          <ClusterWorkspace key={activeTab} contextName={activeTab} />
+          <ClusterWorkspace key={activeTab} contextName={activeTab} readOnly={readOnly} />
         )}
       </div>
 

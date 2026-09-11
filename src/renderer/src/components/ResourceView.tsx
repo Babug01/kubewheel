@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
 import type { ResourceKind, ResourceRow, ResourceTableResult } from '@shared/types'
-import { RESOURCE_KIND_LABELS, RESOURCE_KIND_NAMESPACED } from '@shared/types'
+import {
+  RESOURCE_KIND_DELETABLE,
+  RESOURCE_KIND_LABELS,
+  RESOURCE_KIND_NAMESPACED,
+  RESOURCE_KIND_RESTARTABLE,
+  RESOURCE_KIND_SCALABLE
+} from '@shared/types'
 import { renderCellValue } from './StatusCell'
 
 interface Props {
@@ -13,6 +19,18 @@ interface Props {
   onNamespaceChange: (ns: string) => void
   onSelectRow: (row: ResourceRow) => void
   onViewLogs?: (row: ResourceRow) => void
+  onRefresh: () => void
+  readOnly: boolean
+  deletingKeys: Set<string>
+  onDeleteRow: (row: ResourceRow) => void
+  onScaleRow: (row: ResourceRow, replicas: number) => void
+  onRestartRow: (row: ResourceRow) => void
+}
+
+// "2/3" (ready/desired) -> 3. Falls back to 1 if the Ready column isn't in that shape.
+function currentReplicas(row: ResourceRow): number {
+  const parsed = Number.parseInt(row.cells.ready?.split('/')[1] ?? '', 10)
+  return Number.isFinite(parsed) ? parsed : 1
 }
 
 export default function ResourceView({
@@ -24,10 +42,20 @@ export default function ResourceView({
   namespace,
   onNamespaceChange,
   onSelectRow,
-  onViewLogs
+  onViewLogs,
+  onRefresh,
+  readOnly,
+  deletingKeys,
+  onDeleteRow,
+  onScaleRow,
+  onRestartRow
 }: Props): React.JSX.Element {
   const [search, setSearch] = useState('')
   const namespaced = RESOURCE_KIND_NAMESPACED[kind]
+  const deletable = !readOnly && Boolean(RESOURCE_KIND_DELETABLE[kind])
+  const scalable = !readOnly && Boolean(RESOURCE_KIND_SCALABLE[kind])
+  const restartable = !readOnly && Boolean(RESOURCE_KIND_RESTARTABLE[kind])
+  const showActionsColumn = kind === 'pods' || deletable || scalable || restartable
 
   const rows = useMemo(() => {
     if (!table) return []
@@ -42,6 +70,13 @@ export default function ResourceView({
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {RESOURCE_KIND_LABELS[kind]}
         </h2>
+        <button
+          onClick={onRefresh}
+          title="Refresh"
+          className="rounded px-1.5 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+        >
+          &#8635;
+        </button>
         {namespaced && (
           <select
             value={namespace}
@@ -86,38 +121,99 @@ export default function ResourceView({
                     {c.label}
                   </th>
                 ))}
-                {kind === 'pods' && <th className="px-3 py-2 font-medium">Logs</th>}
+                {showActionsColumn && <th className="px-3 py-2 font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={`${row.namespace ?? ''}/${row.name}`}
-                  className="cursor-pointer border-t border-slate-100 hover:bg-accent-50 dark:border-slate-800 dark:hover:bg-slate-900"
-                  onClick={() => onSelectRow(row)}
-                >
-                  <td className="px-3 py-2 font-medium">{row.name}</td>
-                  {namespaced && namespace === 'all' && <td className="px-3 py-2">{row.namespace}</td>}
-                  {table.columns.map((c) => (
-                    <td key={c.key} className="max-w-[280px] truncate px-3 py-2" title={row.cells[c.key]}>
-                      {renderCellValue(c.key, row.cells[c.key])}
-                    </td>
-                  ))}
-                  {kind === 'pods' && (
-                    <td className="px-3 py-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onViewLogs?.(row)
-                        }}
-                        className="rounded bg-accent-600 px-2 py-0.5 text-xs text-white hover:bg-accent-500"
-                      >
-                        Logs
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
+              {rows.map((row) => {
+                const key = `${row.namespace ?? ''}/${row.name}`
+                const deleting = deletingKeys.has(key)
+                return (
+                  <tr
+                    key={key}
+                    onClick={() => !deleting && onSelectRow(row)}
+                    className={`border-t border-slate-100 dark:border-slate-800 ${
+                      deleting
+                        ? 'opacity-40'
+                        : 'cursor-pointer hover:bg-accent-50 dark:hover:bg-slate-900'
+                    }`}
+                  >
+                    <td className="px-3 py-2 font-medium">{row.name}</td>
+                    {namespaced && namespace === 'all' && <td className="px-3 py-2">{row.namespace}</td>}
+                    {table.columns.map((c) => (
+                      <td key={c.key} className="max-w-[280px] truncate px-3 py-2" title={row.cells[c.key]}>
+                        {renderCellValue(c.key, row.cells[c.key])}
+                      </td>
+                    ))}
+                    {showActionsColumn && (
+                      <td className="px-3 py-2">
+                        {deleting ? (
+                          <span className="text-xs text-slate-400">Deleting...</span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            {kind === 'pods' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onViewLogs?.(row)
+                                }}
+                                className="rounded bg-accent-600 px-2 py-0.5 text-xs text-white hover:bg-accent-500"
+                              >
+                                Logs
+                              </button>
+                            )}
+                            {restartable && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onRestartRow(row)
+                                }}
+                                title="Rollout restart"
+                                className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                              >
+                                Restart
+                              </button>
+                            )}
+                            {scalable && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const input = window.prompt(
+                                    `New replica count for ${row.name}:`,
+                                    String(currentReplicas(row))
+                                  )
+                                  if (input === null) return
+                                  const replicas = Number.parseInt(input, 10)
+                                  if (Number.isFinite(replicas) && replicas >= 0) onScaleRow(row, replicas)
+                                  else window.alert('Enter a non-negative whole number.')
+                                }}
+                                title="Scale"
+                                className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                              >
+                                Scale
+                              </button>
+                            )}
+                            {deletable && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (window.confirm(`Delete ${RESOURCE_KIND_LABELS[kind]} "${row.name}"?`)) {
+                                    onDeleteRow(row)
+                                  }
+                                }}
+                                title="Delete"
+                                className="rounded border border-red-300 px-2 py-0.5 text-xs text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}

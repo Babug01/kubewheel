@@ -158,6 +158,56 @@ export const RESOURCE_KIND_LABELS: Record<ResourceKind, string> = {
   events: 'Events'
 }
 
+// Kinds that support the generic "edit YAML and save" / "delete" actions when mutations are
+// unlocked. Deliberately excludes controller-owned/system-generated kinds (Events, EndpointSlices,
+// Endpoints), rarely hand-edited cluster infra (Leases, PriorityClasses, PersistentVolumes,
+// StorageClasses, IngressClasses), and Secrets (which already have their own masked-value panel --
+// editing raw base64 there isn't exposed, though deleting one still is, separately).
+export const RESOURCE_KIND_EDITABLE: Partial<Record<ResourceKind, true>> = {
+  pods: true,
+  deployments: true,
+  statefulsets: true,
+  daemonsets: true,
+  replicasets: true,
+  jobs: true,
+  cronjobs: true,
+  services: true,
+  ingresses: true,
+  configmaps: true,
+  resourcequotas: true,
+  limitranges: true,
+  hpas: true,
+  poddisruptionbudgets: true,
+  persistentvolumeclaims: true,
+  namespaces: true,
+  serviceaccounts: true,
+  roles: true,
+  rolebindings: true,
+  clusterroles: true,
+  clusterrolebindings: true,
+  networkpolicies: true
+}
+
+// Deletable is everything editable, plus Secrets (delete doesn't require exposing their content).
+export const RESOURCE_KIND_DELETABLE: Partial<Record<ResourceKind, true>> = {
+  ...RESOURCE_KIND_EDITABLE,
+  secrets: true
+}
+
+// Controllers with a /scale subresource.
+export const RESOURCE_KIND_SCALABLE: Partial<Record<ResourceKind, true>> = {
+  deployments: true,
+  statefulsets: true,
+  replicasets: true
+}
+
+// Controllers whose pod template supports a rollout-restart (kubectl rollout restart equivalent).
+export const RESOURCE_KIND_RESTARTABLE: Partial<Record<ResourceKind, true>> = {
+  deployments: true,
+  statefulsets: true,
+  daemonsets: true
+}
+
 // Cluster-scoped kinds have no namespace -- the UI hides the namespace selector/column for these.
 export const RESOURCE_KIND_NAMESPACED: Record<ResourceKind, boolean> = {
   pods: true,

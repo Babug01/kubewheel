@@ -17,6 +17,30 @@ import {
   Metrics,
   Log
 } from '@kubernetes/client-node'
+import type {
+  V1Pod,
+  V1Deployment,
+  V1StatefulSet,
+  V1DaemonSet,
+  V1ReplicaSet,
+  V1Job,
+  V1CronJob,
+  V1Service,
+  V1Ingress,
+  V1ConfigMap,
+  V1ResourceQuota,
+  V1LimitRange,
+  V1PodDisruptionBudget,
+  V1PersistentVolumeClaim,
+  V1Namespace,
+  V1ServiceAccount,
+  V1Role,
+  V1RoleBinding,
+  V1ClusterRole,
+  V1ClusterRoleBinding,
+  V1NetworkPolicy,
+  V2HorizontalPodAutoscaler
+} from '@kubernetes/client-node'
 import * as yaml from 'js-yaml'
 import { Writable } from 'stream'
 import { gunzipSync } from 'zlib'
@@ -1375,6 +1399,273 @@ export class KubeManager {
         break
     }
     return yaml.dump(cleanForYaml(obj as { metadata?: { managedFields?: unknown } }), { noRefs: true })
+  }
+
+  // The only four mutating operations Kubewheel supports, each gated by the main process's
+  // read-only-mode check before it ever reaches here. Deliberately scoped to a curated set of
+  // kinds (see RESOURCE_KIND_EDITABLE/DELETABLE/SCALABLE/RESTARTABLE in shared/types.ts) rather
+  // than every kind getResourceYaml can read -- system-generated and rarely hand-edited kinds
+  // (Events, EndpointSlices, Leases, PersistentVolumes, ...) are left view-only.
+
+  // Full PUT replace, matching `kubectl edit`/`kubectl replace -f` semantics -- the resourceVersion
+  // in the edited YAML (never stripped, unlike managedFields) gives the server's own optimistic
+  // concurrency check for free, surfacing as a 409 if it went stale while the panel was open.
+  async applyResourceYaml(
+    kind: ResourceKind,
+    namespace: string | undefined,
+    name: string,
+    yamlText: string
+  ): Promise<void> {
+    const parsed = yaml.load(yamlText)
+    switch (kind) {
+      case 'pods':
+        await this.core.replaceNamespacedPod({ name, namespace: namespace!, body: parsed as V1Pod })
+        break
+      case 'deployments':
+        await this.apps.replaceNamespacedDeployment({ name, namespace: namespace!, body: parsed as V1Deployment })
+        break
+      case 'statefulsets':
+        await this.apps.replaceNamespacedStatefulSet({ name, namespace: namespace!, body: parsed as V1StatefulSet })
+        break
+      case 'daemonsets':
+        await this.apps.replaceNamespacedDaemonSet({ name, namespace: namespace!, body: parsed as V1DaemonSet })
+        break
+      case 'replicasets':
+        await this.apps.replaceNamespacedReplicaSet({ name, namespace: namespace!, body: parsed as V1ReplicaSet })
+        break
+      case 'jobs':
+        await this.batch.replaceNamespacedJob({ name, namespace: namespace!, body: parsed as V1Job })
+        break
+      case 'cronjobs':
+        await this.batch.replaceNamespacedCronJob({ name, namespace: namespace!, body: parsed as V1CronJob })
+        break
+      case 'services':
+        await this.core.replaceNamespacedService({ name, namespace: namespace!, body: parsed as V1Service })
+        break
+      case 'ingresses':
+        await this.net.replaceNamespacedIngress({ name, namespace: namespace!, body: parsed as V1Ingress })
+        break
+      case 'configmaps':
+        await this.core.replaceNamespacedConfigMap({ name, namespace: namespace!, body: parsed as V1ConfigMap })
+        break
+      case 'resourcequotas':
+        await this.core.replaceNamespacedResourceQuota({
+          name,
+          namespace: namespace!,
+          body: parsed as V1ResourceQuota
+        })
+        break
+      case 'limitranges':
+        await this.core.replaceNamespacedLimitRange({ name, namespace: namespace!, body: parsed as V1LimitRange })
+        break
+      case 'hpas':
+        await this.autoscaling.replaceNamespacedHorizontalPodAutoscaler({
+          name,
+          namespace: namespace!,
+          body: parsed as V2HorizontalPodAutoscaler
+        })
+        break
+      case 'poddisruptionbudgets':
+        await this.policy.replaceNamespacedPodDisruptionBudget({
+          name,
+          namespace: namespace!,
+          body: parsed as V1PodDisruptionBudget
+        })
+        break
+      case 'persistentvolumeclaims':
+        await this.core.replaceNamespacedPersistentVolumeClaim({
+          name,
+          namespace: namespace!,
+          body: parsed as V1PersistentVolumeClaim
+        })
+        break
+      case 'namespaces':
+        await this.core.replaceNamespace({ name, body: parsed as V1Namespace })
+        break
+      case 'serviceaccounts':
+        await this.core.replaceNamespacedServiceAccount({
+          name,
+          namespace: namespace!,
+          body: parsed as V1ServiceAccount
+        })
+        break
+      case 'roles':
+        await this.rbac.replaceNamespacedRole({ name, namespace: namespace!, body: parsed as V1Role })
+        break
+      case 'rolebindings':
+        await this.rbac.replaceNamespacedRoleBinding({
+          name,
+          namespace: namespace!,
+          body: parsed as V1RoleBinding
+        })
+        break
+      case 'clusterroles':
+        await this.rbac.replaceClusterRole({ name, body: parsed as V1ClusterRole })
+        break
+      case 'clusterrolebindings':
+        await this.rbac.replaceClusterRoleBinding({ name, body: parsed as V1ClusterRoleBinding })
+        break
+      case 'networkpolicies':
+        await this.net.replaceNamespacedNetworkPolicy({
+          name,
+          namespace: namespace!,
+          body: parsed as V1NetworkPolicy
+        })
+        break
+      default:
+        throw new Error(`Editing ${kind} is not supported`)
+    }
+  }
+
+  async deleteResource(kind: ResourceKind, namespace: string | undefined, name: string): Promise<void> {
+    switch (kind) {
+      case 'pods':
+        await this.core.deleteNamespacedPod({ name, namespace: namespace! })
+        break
+      case 'deployments':
+        await this.apps.deleteNamespacedDeployment({ name, namespace: namespace! })
+        break
+      case 'statefulsets':
+        await this.apps.deleteNamespacedStatefulSet({ name, namespace: namespace! })
+        break
+      case 'daemonsets':
+        await this.apps.deleteNamespacedDaemonSet({ name, namespace: namespace! })
+        break
+      case 'replicasets':
+        await this.apps.deleteNamespacedReplicaSet({ name, namespace: namespace! })
+        break
+      case 'jobs':
+        await this.batch.deleteNamespacedJob({ name, namespace: namespace! })
+        break
+      case 'cronjobs':
+        await this.batch.deleteNamespacedCronJob({ name, namespace: namespace! })
+        break
+      case 'services':
+        await this.core.deleteNamespacedService({ name, namespace: namespace! })
+        break
+      case 'ingresses':
+        await this.net.deleteNamespacedIngress({ name, namespace: namespace! })
+        break
+      case 'configmaps':
+        await this.core.deleteNamespacedConfigMap({ name, namespace: namespace! })
+        break
+      case 'secrets':
+        await this.core.deleteNamespacedSecret({ name, namespace: namespace! })
+        break
+      case 'resourcequotas':
+        await this.core.deleteNamespacedResourceQuota({ name, namespace: namespace! })
+        break
+      case 'limitranges':
+        await this.core.deleteNamespacedLimitRange({ name, namespace: namespace! })
+        break
+      case 'hpas':
+        await this.autoscaling.deleteNamespacedHorizontalPodAutoscaler({ name, namespace: namespace! })
+        break
+      case 'poddisruptionbudgets':
+        await this.policy.deleteNamespacedPodDisruptionBudget({ name, namespace: namespace! })
+        break
+      case 'persistentvolumeclaims':
+        await this.core.deleteNamespacedPersistentVolumeClaim({ name, namespace: namespace! })
+        break
+      case 'namespaces':
+        await this.core.deleteNamespace({ name })
+        break
+      case 'serviceaccounts':
+        await this.core.deleteNamespacedServiceAccount({ name, namespace: namespace! })
+        break
+      case 'roles':
+        await this.rbac.deleteNamespacedRole({ name, namespace: namespace! })
+        break
+      case 'rolebindings':
+        await this.rbac.deleteNamespacedRoleBinding({ name, namespace: namespace! })
+        break
+      case 'clusterroles':
+        await this.rbac.deleteClusterRole({ name })
+        break
+      case 'clusterrolebindings':
+        await this.rbac.deleteClusterRoleBinding({ name })
+        break
+      case 'networkpolicies':
+        await this.net.deleteNamespacedNetworkPolicy({ name, namespace: namespace! })
+        break
+      default:
+        throw new Error(`Deleting ${kind} is not supported`)
+    }
+  }
+
+  // Uses the /scale subresource rather than a full-object patch -- narrower blast radius, and it's
+  // the same endpoint `kubectl scale` itself calls.
+  async scaleResource(kind: ResourceKind, namespace: string, name: string, replicas: number): Promise<void> {
+    const body = [{ op: 'replace', path: '/spec/replicas', value: replicas }]
+    switch (kind) {
+      case 'deployments':
+        await this.apps.patchNamespacedDeploymentScale({ name, namespace, body })
+        break
+      case 'statefulsets':
+        await this.apps.patchNamespacedStatefulSetScale({ name, namespace, body })
+        break
+      case 'replicasets':
+        await this.apps.patchNamespacedReplicaSetScale({ name, namespace, body })
+        break
+      default:
+        throw new Error(`Scaling ${kind} is not supported`)
+    }
+  }
+
+  // Equivalent to `kubectl rollout restart`: stamp the pod template with a restartedAt annotation
+  // so the controller rolls new pods. Reads first to know whether the annotations map already
+  // exists -- JSON Patch's "add" can't target a nested path whose parent object is absent, and a
+  // blind `add` on the whole annotations object would silently wipe out unrelated ones.
+  async restartResource(kind: ResourceKind, namespace: string, name: string): Promise<void> {
+    const timestamp = new Date().toISOString()
+    const patchFor = (hasAnnotations: boolean): { op: string; path: string; value: unknown }[] =>
+      hasAnnotations
+        ? [
+            {
+              op: 'add',
+              path: '/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt',
+              value: timestamp
+            }
+          ]
+        : [
+            {
+              op: 'add',
+              path: '/spec/template/metadata/annotations',
+              value: { 'kubectl.kubernetes.io/restartedAt': timestamp }
+            }
+          ]
+
+    switch (kind) {
+      case 'deployments': {
+        const current = await this.apps.readNamespacedDeployment({ name, namespace })
+        await this.apps.patchNamespacedDeployment({
+          name,
+          namespace,
+          body: patchFor(!!current.spec?.template?.metadata?.annotations)
+        })
+        break
+      }
+      case 'statefulsets': {
+        const current = await this.apps.readNamespacedStatefulSet({ name, namespace })
+        await this.apps.patchNamespacedStatefulSet({
+          name,
+          namespace,
+          body: patchFor(!!current.spec?.template?.metadata?.annotations)
+        })
+        break
+      }
+      case 'daemonsets': {
+        const current = await this.apps.readNamespacedDaemonSet({ name, namespace })
+        await this.apps.patchNamespacedDaemonSet({
+          name,
+          namespace,
+          body: patchFor(!!current.spec?.template?.metadata?.annotations)
+        })
+        break
+      }
+      default:
+        throw new Error(`Restarting ${kind} is not supported`)
+    }
   }
 
   async listPodContainers(namespace: string, pod: string): Promise<string[]> {

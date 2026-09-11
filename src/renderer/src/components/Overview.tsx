@@ -6,15 +6,25 @@ interface Props {
   overview: ClusterOverview | null
   loading: boolean
   error: string | null
+  onRefresh: () => void
 }
 
-export default function Overview({ contextName, overview, loading, error }: Props): React.JSX.Element {
+export default function Overview({ contextName, overview, loading, error, onRefresh }: Props): React.JSX.Element {
   if (loading) return <div className="p-6 text-sm text-slate-500">Loading cluster overview...</div>
   if (error) return <div className="p-6 text-sm text-red-600">{error}</div>
   if (!overview) return <div className="p-6 text-sm text-slate-500">No data.</div>
 
   return (
     <div className="overflow-auto p-6">
+      <div className="mb-4 flex items-center gap-2">
+        <button
+          onClick={onRefresh}
+          title="Refresh"
+          className="rounded px-1.5 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+        >
+          &#8635;
+        </button>
+      </div>
       <div className="mb-4 grid grid-cols-4 gap-4">
         <StatCard label="Context" value={overview.contextName} />
         <StatCard label="Kubernetes version" value={overview.version} />

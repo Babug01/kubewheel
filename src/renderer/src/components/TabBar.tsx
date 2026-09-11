@@ -12,6 +12,8 @@ interface Props {
   onClose: (contextName: string) => void
   dark: boolean
   onToggleDark: () => void
+  readOnly: boolean
+  onSetUnlocked: (unlocked: boolean) => void
 }
 
 export default function TabBar({
@@ -24,8 +26,20 @@ export default function TabBar({
   onBrowseCatalog,
   onClose,
   dark,
-  onToggleDark
+  onToggleDark,
+  readOnly,
+  onSetUnlocked
 }: Props): React.JSX.Element {
+  const toggleMutations = (): void => {
+    if (readOnly) {
+      const confirmed = window.confirm(
+        'Unlock mutations?\n\nThis lets you edit, delete, scale, and restart resources on every open cluster, effective immediately. Re-lock any time from this same button.'
+      )
+      if (confirmed) onSetUnlocked(true)
+    } else {
+      onSetUnlocked(false)
+    }
+  }
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-1 dark:border-slate-800 dark:bg-slate-950">
       <button
@@ -71,6 +85,18 @@ export default function TabBar({
           </div>
         ))}
       </div>
+
+      <button
+        onClick={toggleMutations}
+        className={`mr-2 shrink-0 rounded px-2 py-1 text-xs font-medium ${
+          readOnly
+            ? 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'
+            : 'bg-amber-500 text-amber-950 hover:bg-amber-400'
+        }`}
+        title={readOnly ? 'Read-only -- click to unlock edit/delete/scale/restart' : 'Click to re-lock to read-only'}
+      >
+        {readOnly ? 'Read-only' : 'Mutations unlocked'}
+      </button>
 
       <div className="mr-2">
         <ColorPicker />
