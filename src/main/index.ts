@@ -63,6 +63,24 @@ function registerIpcHandlers(): void {
     withResult(() => getKube(contextName).getOverview())
   )
 
+  // Used by the catalog grid to show a version badge on cards that aren't open in a tab yet, so
+  // it needs its own contextName+kubeconfigPath pair (getKube() alone can't build a manager for a
+  // context that only exists in an extra kubeconfig file). Capped with a timeout since catalogs
+  // commonly list clusters that are unreachable without a VPN -- that must fail fast, not hang.
+  ipcMain.handle('k8s:getContextVersion', (_e, contextName: string, kubeconfigPath: string) =>
+    withResult(async () => {
+      let manager = kubeManagers.get(contextName)
+      if (!manager) {
+        manager = new KubeManager(contextName, kubeconfigPath || undefined)
+        kubeManagers.set(contextName, manager)
+      }
+      const timeout = new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error('timed out')), 6000)
+      )
+      return await Promise.race([manager.getVersion(), timeout])
+    })
+  )
+
   ipcMain.handle('k8s:getClusterMetrics', (_e, contextName: string) =>
     withResult(() => getKube(contextName).getClusterMetrics())
   )

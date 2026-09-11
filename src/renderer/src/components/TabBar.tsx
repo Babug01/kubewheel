@@ -4,8 +4,11 @@ import CatalogMenu from './CatalogMenu'
 interface Props {
   tabs: string[]
   activeTab: string | null
-  onSelect: (contextName: string | null) => void
+  screen: 'home' | 'catalog'
+  onSelect: (contextName: string) => void
   onOpenTab: (contextName: string, kubeconfigPath: string) => void
+  onGoHome: () => void
+  onBrowseCatalog: () => void
   onClose: (contextName: string) => void
   dark: boolean
   onToggleDark: () => void
@@ -14,22 +17,33 @@ interface Props {
 export default function TabBar({
   tabs,
   activeTab,
+  screen,
   onSelect,
   onOpenTab,
+  onGoHome,
+  onBrowseCatalog,
   onClose,
   dark,
   onToggleDark
 }: Props): React.JSX.Element {
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-1 dark:border-slate-800 dark:bg-slate-950">
-      <div className="mr-2 flex items-center gap-1.5 pl-2 pr-3 text-sm font-bold tracking-tight text-accent-600 dark:text-accent-400">
+      <button
+        onClick={onGoHome}
+        className="mr-2 flex items-center gap-1.5 rounded pl-2 pr-3 text-sm font-bold tracking-tight text-accent-600 hover:bg-slate-200 dark:text-accent-400 dark:hover:bg-slate-800"
+        title="Go to home"
+      >
         <span aria-hidden className="text-base leading-none">
           &#9784;
         </span>
         <span>Kubewheel</span>
-      </div>
+      </button>
 
-      <CatalogMenu onOpen={onOpenTab} onBrowseAll={() => onSelect(null)} isOnCatalogPage={activeTab === null} />
+      <CatalogMenu
+        onOpen={onOpenTab}
+        onBrowseAll={onBrowseCatalog}
+        isOnCatalogPage={activeTab === null && screen === 'catalog'}
+      />
 
       <div className="flex flex-1 items-center gap-1 overflow-x-auto">
         {tabs.map((t) => (

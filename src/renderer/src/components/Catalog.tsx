@@ -3,11 +3,17 @@ import type { ContextInfo } from '@shared/types'
 import { loadFavorites, saveFavorites } from '../lib/favorites'
 import { loadExtraKubeconfigs, saveExtraKubeconfigs } from '../lib/kubeconfigs'
 import { loadHiddenContexts, saveHiddenContexts } from '../lib/hiddenContexts'
+import { getCachedVersion, setCachedVersion } from '../lib/clusterVersions'
 
 interface Props {
   onOpen: (contextName: string, kubeconfigPath: string) => void
   onOpenPreferences: () => void
 }
+
+// How many clusters to connect to at once just to read their version. Kept low because each
+// lookup opens a real connection (auth plugin and all) and a catalog can easily list dozens of
+// clusters, several of which may be unreachable (VPN-gated) or slow to auth.
+const VERSION_FETCH_CONCURRENCY = 4
 
 export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX.Element {
   const [contexts, setContexts] = useState<ContextInfo[] | null>(null)
@@ -18,6 +24,7 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
   const [showHidden, setShowHidden] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [versions, setVersions] = useState<Record<string, string | null>>({})
 
   const reloadContexts = (): void => {
     window.api.listContexts(loadExtraKubeconfigs()).then((res) => {
@@ -29,6 +36,45 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
   useEffect(() => {
     reloadContexts()
   }, [])
+
+  // Fetch a Kubernetes version badge per card: cached results show instantly, everything else is
+  // fetched in the background with a small concurrency cap so we don't open a connection to every
+  // cluster in the catalog at once.
+  useEffect(() => {
+    if (!contexts) return
+    let cancelled = false
+
+    const cached: Record<string, string | null> = {}
+    for (const c of contexts) {
+      const v = getCachedVersion(c.name)
+      if (v) cached[c.name] = v
+    }
+    setVersions((prev) => ({ ...cached, ...prev }))
+
+    const toFetch = contexts.filter((c) => !hidden.has(c.name) && !cached[c.name])
+    let index = 0
+    async function worker(): Promise<void> {
+      while (index < toFetch.length) {
+        if (cancelled) return
+        const c = toFetch[index++]
+        const res = await window.api.getContextVersion(c.name, c.kubeconfigPath)
+        if (cancelled) return
+        if (res.ok) {
+          setCachedVersion(c.name, res.data)
+          setVersions((prev) => ({ ...prev, [c.name]: res.data }))
+        } else {
+          setVersions((prev) => ({ ...prev, [c.name]: null }))
+        }
+      }
+    }
+    const workers = Array.from({ length: VERSION_FETCH_CONCURRENCY }, () => worker())
+    void Promise.all(workers)
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contexts])
 
   const addCluster = async (): Promise<void> => {
     setAddError(null)
@@ -174,23 +220,33 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
                     </button>
                   </div>
                 </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-                  <span className="truncate" title={c.user}>
+                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                  <span className="min-w-0 flex-1 truncate" title={c.user}>
                     {c.user}
                   </span>
-                  {c.isCurrent && (
-                    <span className="rounded bg-accent-50 px-1.5 py-0.5 text-accent-700 dark:bg-accent-900 dark:text-accent-300">
-                      kubectl default
-                    </span>
-                  )}
-                  {c.kubeconfigPath && (
-                    <span
-                      className="truncate rounded bg-slate-100 px-1.5 py-0.5 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                      title={c.kubeconfigPath}
-                    >
-                      extra file
-                    </span>
-                  )}
+                  <div className="flex shrink-0 items-center gap-1">
+                    {versions[c.name] && (
+                      <span
+                        className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                        title="Kubernetes server version"
+                      >
+                        {versions[c.name]}
+                      </span>
+                    )}
+                    {c.isCurrent && (
+                      <span className="rounded bg-accent-50 px-1.5 py-0.5 text-accent-700 dark:bg-accent-900 dark:text-accent-300">
+                        kubectl default
+                      </span>
+                    )}
+                    {c.kubeconfigPath && (
+                      <span
+                        className="truncate rounded bg-slate-100 px-1.5 py-0.5 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                        title={c.kubeconfigPath}
+                      >
+                        extra file
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

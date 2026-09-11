@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import TabBar from './components/TabBar'
+import Home from './components/Home'
 import Catalog from './components/Catalog'
 import ClusterWorkspace from './components/ClusterWorkspace'
 import PreferencesPanel from './components/PreferencesPanel'
@@ -20,6 +21,7 @@ export default function App(): React.JSX.Element {
   const [dark, setDark] = useState<boolean>(() => localStorage.getItem('kll-dark') === '1')
   const [tabs, setTabs] = useState<string[]>(() => loadOpenTabs())
   const [activeTab, setActiveTab] = useState<string | null>(() => loadOpenTabs()[0] ?? null)
+  const [screen, setScreen] = useState<'home' | 'catalog'>(() => (loadOpenTabs().length === 0 ? 'home' : 'catalog'))
   const [preferencesOpen, setPreferencesOpen] = useState(false)
   const [catalogKey, setCatalogKey] = useState(0)
   const [openError, setOpenError] = useState<string | null>(null)
@@ -61,13 +63,26 @@ export default function App(): React.JSX.Element {
     })
   }
 
+  const goHome = (): void => {
+    setActiveTab(null)
+    setScreen('home')
+  }
+
+  const browseCatalog = (): void => {
+    setActiveTab(null)
+    setScreen('catalog')
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <TabBar
         tabs={tabs}
         activeTab={activeTab}
+        screen={screen}
         onSelect={setActiveTab}
         onOpenTab={openTab}
+        onGoHome={goHome}
+        onBrowseCatalog={browseCatalog}
         onClose={closeTab}
         dark={dark}
         onToggleDark={() => setDark((d) => !d)}
@@ -84,7 +99,11 @@ export default function App(): React.JSX.Element {
 
       <div className="flex flex-1 overflow-hidden">
         {activeTab === null ? (
-          <Catalog key={catalogKey} onOpen={openTab} onOpenPreferences={() => setPreferencesOpen(true)} />
+          screen === 'home' ? (
+            <Home onBrowseCatalog={browseCatalog} />
+          ) : (
+            <Catalog key={catalogKey} onOpen={openTab} onOpenPreferences={() => setPreferencesOpen(true)} />
+          )
         ) : (
           <ClusterWorkspace key={activeTab} contextName={activeTab} />
         )}

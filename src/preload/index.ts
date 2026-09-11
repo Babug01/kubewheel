@@ -20,6 +20,8 @@ const api = {
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
   getOverview: (contextName: string): Promise<Result<ClusterOverview>> =>
     ipcRenderer.invoke('k8s:getOverview', contextName),
+  getContextVersion: (contextName: string, kubeconfigPath: string): Promise<Result<string>> =>
+    ipcRenderer.invoke('k8s:getContextVersion', contextName, kubeconfigPath),
   getClusterMetrics: (contextName: string): Promise<Result<ClusterMetricsPoint>> =>
     ipcRenderer.invoke('k8s:getClusterMetrics', contextName),
   listNamespaces: (contextName: string): Promise<Result<string[]>> =>

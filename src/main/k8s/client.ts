@@ -287,6 +287,13 @@ export class KubeManager {
     }
   }
 
+  // Deliberately lighter than getOverview() -- a single call, used to show a version badge on
+  // catalog cards for clusters that aren't open in a tab (and so have no cached overview yet).
+  async getVersion(): Promise<string> {
+    const info = await this.version.getCode()
+    return info.gitVersion ?? '-'
+  }
+
   async getClusterMetrics(): Promise<ClusterMetricsPoint> {
     const [nodeList, nodeMetrics] = await Promise.all([this.core.listNode(), this.tryGetNodeMetrics()])
     if (!nodeMetrics) return { available: false, cpuPercent: 0, memPercent: 0 }
