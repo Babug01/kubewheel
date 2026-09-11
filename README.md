@@ -29,7 +29,7 @@ Grab the latest installer for your OS from the [Releases page](https://github.co
 
 - **Windows** — `kubewheel-vx.y.z-windows-x64-setup.exe` (installer) or the `-portable.exe` build
 - **macOS** — `kubewheel-vx.y.z-macos-x64.dmg` (Intel) or `-macos-arm64.dmg` (Apple Silicon)
-- **Linux** — `kubewheel-vx.y.z-linux-x64.AppImage` or the `-linux-x64.deb`
+- **Linux** — `kubewheel-vx.y.z-linux-x86_64.AppImage` or `kubewheel-vx.y.z-linux-amd64.deb`
 
 These builds are unsigned (no paid code-signing certificate), so your OS will show a first-run
 warning — Windows SmartScreen ("Windows protected your PC" → More info → Run anyway) or macOS
@@ -60,11 +60,11 @@ open /Applications/Kubewheel.app
 
 ```bash
 # .deb (Debian/Ubuntu)
-sudo dpkg -i kubewheel-vx.y.z-linux-x64.deb
+sudo dpkg -i kubewheel-vx.y.z-linux-amd64.deb
 
 # AppImage (any distro)
-chmod +x kubewheel-vx.y.z-linux-x64.AppImage
-./kubewheel-vx.y.z-linux-x64.AppImage
+chmod +x kubewheel-vx.y.z-linux-x86_64.AppImage
+./kubewheel-vx.y.z-linux-x86_64.AppImage
 ```
 
 ## Features (read-only)
