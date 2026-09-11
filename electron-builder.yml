@@ -14,11 +14,15 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  artifactName: kubewheel-v${version}-windows-${arch}-setup.${ext}
+portable:
+  artifactName: kubewheel-v${version}-windows-${arch}-portable.${ext}
 mac:
   target:
     - target: dmg
       arch: [x64, arm64]
   category: public.app-category.developer-tools
+  artifactName: kubewheel-v${version}-macos-${arch}.${ext}
 linux:
   target:
     - target: AppImage
@@ -26,6 +30,7 @@ linux:
     - target: deb
       arch: [x64]
   category: Development
+  artifactName: kubewheel-v${version}-linux-${arch}.${ext}
 publish:
   provider: github
   owner: Babug01

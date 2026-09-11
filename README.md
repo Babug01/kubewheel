@@ -27,9 +27,9 @@ infrastructure.)*
 
 Grab the latest installer for your OS from the [Releases page](https://github.com/Babug01/kubewheel/releases):
 
-- **Windows** — `Kubewheel-Setup-x.y.z.exe` (installer) or the portable `.exe`
-- **macOS** — `Kubewheel-x.y.z.dmg` (Intel and Apple Silicon)
-- **Linux** — `Kubewheel-x.y.z.AppImage` or the `.deb`
+- **Windows** — `kubewheel-vx.y.z-windows-x64-setup.exe` (installer) or the `-portable.exe` build
+- **macOS** — `kubewheel-vx.y.z-macos-x64.dmg` (Intel) or `-macos-arm64.dmg` (Apple Silicon)
+- **Linux** — `kubewheel-vx.y.z-linux-x64.AppImage` or the `-linux-x64.deb`
 
 These builds are unsigned (no paid code-signing certificate), so your OS will show a first-run
 warning — Windows SmartScreen ("Windows protected your PC" → More info → Run anyway) or macOS
@@ -44,8 +44,8 @@ After downloading, the equivalent of the click-through steps above from a termin
 **Windows** (PowerShell)
 
 ```powershell
-.\Kubewheel-Setup-x.y.z.exe   # installer
-.\Kubewheel-x.y.z.exe         # or: portable build, no install needed
+.\kubewheel-vx.y.z-windows-x64-setup.exe      # installer
+.\kubewheel-vx.y.z-windows-x64-portable.exe   # or: portable build, no install needed
 ```
 
 **macOS** (Terminal) — after opening the `.dmg`:
@@ -60,11 +60,11 @@ open /Applications/Kubewheel.app
 
 ```bash
 # .deb (Debian/Ubuntu)
-sudo dpkg -i kubewheel_x.y.z_amd64.deb
+sudo dpkg -i kubewheel-vx.y.z-linux-x64.deb
 
 # AppImage (any distro)
-chmod +x Kubewheel-x.y.z.AppImage
-./Kubewheel-x.y.z.AppImage
+chmod +x kubewheel-vx.y.z-linux-x64.AppImage
+./kubewheel-vx.y.z-linux-x64.AppImage
 ```
 
 ## Features (read-only)

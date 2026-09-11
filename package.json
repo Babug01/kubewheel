@@ -1,6 +1,6 @@
 {
   "name": "kubewheel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A lightweight, read-only Kubernetes cluster viewer for any cloud or on-prem cluster in your kubeconfig",
   "main": "./out/main/index.js",
   "type": "module",
