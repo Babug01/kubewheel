@@ -37,6 +37,11 @@ Gatekeeper (right-click the app → Open, instead of double-clicking). This is n
 open-source tools without a commercial signing budget; nothing about the warning is specific to
 this app.
 
+On a managed/corporate Windows machine, SmartScreen's bypass ("Run anyway") is sometimes disabled
+entirely by IT policy — the dialog only shows "Don't run", even after "More info". If that happens,
+there's no client-side workaround: either ask IT to allow-list the app, or install it on a
+personal, unmanaged machine instead.
+
 ### Installing from the command line
 
 After downloading, the equivalent of the click-through steps above from a terminal:
