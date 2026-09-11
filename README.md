@@ -12,13 +12,13 @@ of a full IDE.
 
 ## Screenshots
 
-| Cluster catalog | Cluster overview |
+| Home | Cluster catalog |
 | --- | --- |
-| ![Cluster catalog, with Add Cluster and per-card Remove/Favorite controls](docs/screenshots/catalog.png) | ![Cluster overview with node list and live CPU/memory usage](docs/screenshots/overview.png) |
+| ![Home screen with a short description of the tool and a Browse Clusters button](docs/screenshots/home.png) | ![Cluster catalog, with Add Cluster, per-card Remove/Favorite controls, and a Kubernetes version badge per cluster](docs/screenshots/catalog.png) |
 
-| Resource browser |
-| --- |
-| ![Pods table across all namespaces, with red/green health-status coloring](docs/screenshots/resources.png) |
+| Cluster overview | Resource browser |
+| --- | --- |
+| ![Cluster overview with node list and live CPU/memory usage](docs/screenshots/overview.png) | ![Pods table across all namespaces, with red/green health-status coloring](docs/screenshots/resources.png) |
 
 *(Cluster, namespace, node, and IP names in these screenshots are synthetic placeholders, not real
 infrastructure.)*
