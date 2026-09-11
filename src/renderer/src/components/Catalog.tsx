@@ -1,24 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ContextInfo } from '@shared/types'
-
-const FAVORITES_KEY = 'kll-favorite-contexts'
-
-function loadFavorites(): Set<string> {
-  try {
-    const raw = localStorage.getItem(FAVORITES_KEY)
-    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
-  } catch {
-    return new Set()
-  }
-}
-
-function saveFavorites(favorites: Set<string>): void {
-  try {
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]))
-  } catch {
-    // best-effort; a private window or blocked storage just means favorites don't persist
-  }
-}
+import { loadFavorites, saveFavorites } from '../lib/favorites'
 
 interface Props {
   onOpen: (contextName: string) => void

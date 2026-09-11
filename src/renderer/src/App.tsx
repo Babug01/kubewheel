@@ -57,6 +57,7 @@ export default function App(): React.JSX.Element {
         tabs={tabs}
         activeTab={activeTab}
         onSelect={setActiveTab}
+        onOpenTab={openTab}
         onClose={closeTab}
         dark={dark}
         onToggleDark={() => setDark((d) => !d)}

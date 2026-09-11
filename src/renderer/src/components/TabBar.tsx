@@ -1,15 +1,25 @@
 import ColorPicker from './ColorPicker'
+import CatalogMenu from './CatalogMenu'
 
 interface Props {
   tabs: string[]
   activeTab: string | null
   onSelect: (contextName: string | null) => void
+  onOpenTab: (contextName: string) => void
   onClose: (contextName: string) => void
   dark: boolean
   onToggleDark: () => void
 }
 
-export default function TabBar({ tabs, activeTab, onSelect, onClose, dark, onToggleDark }: Props): React.JSX.Element {
+export default function TabBar({
+  tabs,
+  activeTab,
+  onSelect,
+  onOpenTab,
+  onClose,
+  dark,
+  onToggleDark
+}: Props): React.JSX.Element {
   return (
     <div className="flex h-10 shrink-0 items-center border-b border-slate-200 bg-slate-50 pl-1 dark:border-slate-800 dark:bg-slate-950">
       <div className="mr-2 flex items-center gap-1.5 pl-2 pr-3 text-sm font-bold tracking-tight text-accent-600 dark:text-accent-400">
@@ -19,17 +29,7 @@ export default function TabBar({ tabs, activeTab, onSelect, onClose, dark, onTog
         <span>Kubewheel</span>
       </div>
 
-      <button
-        onClick={() => onSelect(null)}
-        className={`mr-1 flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium ${
-          activeTab === null
-            ? 'bg-accent-600 text-white'
-            : 'text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800'
-        }`}
-        title="Cluster catalog"
-      >
-        Catalog
-      </button>
+      <CatalogMenu onOpen={onOpenTab} onBrowseAll={() => onSelect(null)} isOnCatalogPage={activeTab === null} />
 
       <div className="flex flex-1 items-center gap-1 overflow-x-auto">
         {tabs.map((t) => (

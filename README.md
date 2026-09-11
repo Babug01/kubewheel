@@ -26,7 +26,9 @@ this app.
 
 ## Features (read-only)
 
-- Cluster catalog — every context in `~/.kube/config` as a searchable, favoritable card grid
+- Cluster catalog — every context in `~/.kube/config` as a searchable, favoritable card grid, plus
+  a quick-access dropdown off the tab bar's Catalog button for one-click switching to a favorited
+  cluster without leaving whatever you're looking at
 - Multi-cluster tabs — open several clusters at once, each with its own independent connection;
   open tabs and favorites persist across restarts
 - Cluster overview — node list (status, roles, version, CPU/memory), Kubernetes version,
