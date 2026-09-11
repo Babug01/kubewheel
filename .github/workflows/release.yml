@@ -34,3 +34,22 @@ jobs:
       - run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notes:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # electron-builder creates the release but never sets a body, so without this every
+      # release ships with empty notes. GitHub's generate-notes API diffs against the previous
+      # tag for a categorized "What's Changed" list; --latest also needs setting explicitly,
+      # since electron-builder-created releases don't get marked as Latest on their own.
+      - name: Set release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases/generate-notes" \
+            -f tag_name="${{ github.ref_name }}" --jq .body > notes.md
+          gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" \
+            --notes-file notes.md --latest

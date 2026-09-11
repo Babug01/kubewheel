@@ -37,6 +37,36 @@ Gatekeeper (right-click the app → Open, instead of double-clicking). This is n
 open-source tools without a commercial signing budget; nothing about the warning is specific to
 this app.
 
+### Installing from the command line
+
+After downloading, the equivalent of the click-through steps above from a terminal:
+
+**Windows** (PowerShell)
+
+```powershell
+.\Kubewheel-Setup-x.y.z.exe   # installer
+.\Kubewheel-x.y.z.exe         # or: portable build, no install needed
+```
+
+**macOS** (Terminal) — after opening the `.dmg`:
+
+```bash
+cp -R "/Volumes/Kubewheel/Kubewheel.app" /Applications/
+xattr -cr /Applications/Kubewheel.app   # clears the quarantine flag Gatekeeper checks
+open /Applications/Kubewheel.app
+```
+
+**Linux**
+
+```bash
+# .deb (Debian/Ubuntu)
+sudo dpkg -i kubewheel_x.y.z_amd64.deb
+
+# AppImage (any distro)
+chmod +x Kubewheel-x.y.z.AppImage
+./Kubewheel-x.y.z.AppImage
+```
+
 ## Features (read-only)
 
 - Cluster catalog — every context in `~/.kube/config` as a searchable, favoritable card grid, plus
