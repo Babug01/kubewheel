@@ -145,18 +145,42 @@ function redactSecret(obj: {
 }
 
 // Standalone, doesn't need a live cluster connection -- used by the catalog to list every
-// context in kubeconfig before any of them have been opened as a workspace.
-export function listKubeContexts(): ContextInfo[] {
-  const kc = new KubeConfig()
-  kc.loadFromDefault()
-  const current = kc.getCurrentContext()
-  return kc.getContexts().map((c) => ({
-    name: c.name,
-    cluster: c.cluster,
-    user: c.user,
-    namespace: c.namespace ?? 'default',
-    isCurrent: c.name === current
-  }))
+// context across the default kubeconfig and any extra files the user has added, before any of
+// them have been opened as a workspace. Contexts are deduped by name, first file wins -- the same
+// rule kubectl itself uses when merging multiple files via the KUBECONFIG env var.
+export function listKubeContexts(extraPaths: string[] = []): ContextInfo[] {
+  const results: ContextInfo[] = []
+  const seen = new Set<string>()
+
+  const loadFrom = (path: string | undefined): void => {
+    const kc = new KubeConfig()
+    if (path) kc.loadFromFile(path)
+    else kc.loadFromDefault()
+    const current = kc.getCurrentContext()
+    for (const c of kc.getContexts()) {
+      if (seen.has(c.name)) continue
+      seen.add(c.name)
+      results.push({
+        name: c.name,
+        cluster: c.cluster,
+        user: c.user,
+        namespace: c.namespace ?? 'default',
+        isCurrent: !path && c.name === current,
+        kubeconfigPath: path ?? ''
+      })
+    }
+  }
+
+  loadFrom(undefined)
+  for (const path of extraPaths) {
+    try {
+      loadFrom(path)
+    } catch {
+      // an unreadable/invalid extra file shouldn't take down the whole catalog
+    }
+  }
+
+  return results
 }
 
 // One instance per open cluster tab -- each owns an independent KubeConfig/client set bound to
@@ -181,8 +205,9 @@ export class KubeManager {
   private metrics!: Metrics
   private activeLogStreams = new Map<string, AbortController>()
 
-  constructor(contextName: string) {
-    this.kc.loadFromDefault()
+  constructor(contextName: string, kubeconfigPath?: string) {
+    if (kubeconfigPath) this.kc.loadFromFile(kubeconfigPath)
+    else this.kc.loadFromDefault()
     this.kc.setCurrentContext(contextName)
     this.buildClients()
   }
@@ -1392,5 +1417,12 @@ export class KubeManager {
   stopLogs(requestId: string): void {
     this.activeLogStreams.get(requestId)?.abort()
     this.activeLogStreams.delete(requestId)
+  }
+
+  // Called when this manager is about to be replaced (e.g. re-opening the same context against a
+  // different kubeconfig file) so its streams don't keep running orphaned in the background.
+  stopAllLogs(): void {
+    for (const controller of this.activeLogStreams.values()) controller.abort()
+    this.activeLogStreams.clear()
   }
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { ContextInfo } from '@shared/types'
 import { loadFavorites } from '../lib/favorites'
+import { loadExtraKubeconfigs } from '../lib/kubeconfigs'
 
 interface Props {
-  onOpen: (contextName: string) => void
+  onOpen: (contextName: string, kubeconfigPath: string) => void
   onBrowseAll: () => void
   isOnCatalogPage: boolean
 }
@@ -23,7 +24,7 @@ export default function CatalogMenu({ onOpen, onBrowseAll, isOnCatalogPage }: Pr
   const toggle = (): void => {
     setOpen((o) => !o)
     if (!contexts) {
-      window.api.listContexts().then((res) => {
+      window.api.listContexts(loadExtraKubeconfigs()).then((res) => {
         if (res.ok) setContexts(res.data)
       })
     }
@@ -63,7 +64,7 @@ export default function CatalogMenu({ onOpen, onBrowseAll, isOnCatalogPage }: Pr
               key={c.name}
               onClick={() => {
                 setOpen(false)
-                onOpen(c.name)
+                onOpen(c.name, c.kubeconfigPath)
               }}
               className="block w-full truncate rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               title={c.name}

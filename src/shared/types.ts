@@ -6,6 +6,7 @@ export interface ContextInfo {
   user: string
   namespace: string
   isCurrent: boolean
+  kubeconfigPath: string // '' for the default ~/.kube/config, else the extra file it came from
 }
 
 export interface NodeSummary {

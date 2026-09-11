@@ -5,7 +5,7 @@ interface Props {
   tabs: string[]
   activeTab: string | null
   onSelect: (contextName: string | null) => void
-  onOpenTab: (contextName: string) => void
+  onOpenTab: (contextName: string, kubeconfigPath: string) => void
   onClose: (contextName: string) => void
   dark: boolean
   onToggleDark: () => void

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import TabBar from './components/TabBar'
 import Catalog from './components/Catalog'
 import ClusterWorkspace from './components/ClusterWorkspace'
+import PreferencesPanel from './components/PreferencesPanel'
 import { applyStoredAccent } from './components/ColorPicker'
 
 const OPEN_TABS_KEY = 'kll-open-tabs'
@@ -19,6 +20,9 @@ export default function App(): React.JSX.Element {
   const [dark, setDark] = useState<boolean>(() => localStorage.getItem('kll-dark') === '1')
   const [tabs, setTabs] = useState<string[]>(() => loadOpenTabs())
   const [activeTab, setActiveTab] = useState<string | null>(() => loadOpenTabs()[0] ?? null)
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [catalogKey, setCatalogKey] = useState(0)
+  const [openError, setOpenError] = useState<string | null>(null)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
@@ -37,7 +41,13 @@ export default function App(): React.JSX.Element {
     }
   }, [tabs])
 
-  const openTab = (contextName: string): void => {
+  const openTab = async (contextName: string, kubeconfigPath: string): Promise<void> => {
+    const res = await window.api.openContext(contextName, kubeconfigPath)
+    if (!res.ok) {
+      setOpenError(res.error)
+      return
+    }
+    setOpenError(null)
     setTabs((prev) => (prev.includes(contextName) ? prev : [...prev, contextName]))
     setActiveTab(contextName)
   }
@@ -63,13 +73,29 @@ export default function App(): React.JSX.Element {
         onToggleDark={() => setDark((d) => !d)}
       />
 
+      {openError && (
+        <div className="flex items-center justify-between bg-red-50 px-4 py-1.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+          <span>Could not open cluster: {openError}</span>
+          <button onClick={() => setOpenError(null)} className="ml-3 shrink-0 hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {activeTab === null ? (
-          <Catalog onOpen={openTab} />
+          <Catalog key={catalogKey} onOpen={openTab} onOpenPreferences={() => setPreferencesOpen(true)} />
         ) : (
           <ClusterWorkspace key={activeTab} contextName={activeTab} />
         )}
       </div>
+
+      {preferencesOpen && (
+        <PreferencesPanel
+          onClose={() => setPreferencesOpen(false)}
+          onKubeconfigsChanged={() => setCatalogKey((k) => k + 1)}
+        />
+      )}
     </div>
   )
 }

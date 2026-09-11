@@ -12,7 +12,12 @@ import type {
 } from '../shared/types'
 
 const api = {
-  listContexts: (): Promise<Result<ContextInfo[]>> => ipcRenderer.invoke('k8s:listContexts'),
+  listContexts: (extraPaths: string[]): Promise<Result<ContextInfo[]>> =>
+    ipcRenderer.invoke('k8s:listContexts', extraPaths),
+  openContext: (contextName: string, kubeconfigPath: string): Promise<Result<void>> =>
+    ipcRenderer.invoke('k8s:openContext', contextName, kubeconfigPath),
+  pickKubeconfig: (): Promise<Result<string | null>> => ipcRenderer.invoke('dialog:pickKubeconfig'),
+  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
   getOverview: (contextName: string): Promise<Result<ClusterOverview>> =>
     ipcRenderer.invoke('k8s:getOverview', contextName),
   getClusterMetrics: (contextName: string): Promise<Result<ClusterMetricsPoint>> =>
