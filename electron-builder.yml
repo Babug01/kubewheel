@@ -14,3 +14,19 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  category: public.app-category.developer-tools
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Development
+publish:
+  provider: github
+  owner: Babug01
+  repo: kubewheel
