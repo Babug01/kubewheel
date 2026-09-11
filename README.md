@@ -1,8 +1,8 @@
 # Kubewheel ☸
 
-A small, read-only Kubernetes cluster viewer for Windows, macOS, and Linux. The name and symbol
-come from Kubernetes' own etymology — the Greek *kybernetes* (helmsman/ship's pilot) is also where
-the wheel in the Kubernetes logo comes from.
+A small Kubernetes cluster viewer for Windows, macOS, and Linux — read-only by default, with an
+explicit unlock for edits. The name and symbol come from Kubernetes' own etymology — the Greek
+*kybernetes* (helmsman/ship's pilot) is also where the wheel in the Kubernetes logo comes from.
 
 Works against **any** cluster in your kubeconfig — AKS, EKS, GKE, or a bare-metal `kubeadm`
 install — since it talks to the standard Kubernetes API via whatever auth your kubeconfig context
@@ -72,8 +72,15 @@ chmod +x kubewheel-vx.y.z-linux-x86_64.AppImage
 ./kubewheel-vx.y.z-linux-x86_64.AppImage
 ```
 
-## Features (read-only)
+## Features
 
+- **Read-only by default, mutations behind an explicit unlock** — the app opens locked every time
+  (never remembers "stay unlocked" between launches); switching to mutation mode takes a confirm
+  step, shows a persistent banner the whole time it's on, and the main process enforces the lock
+  independently of the UI, so it can't be bypassed by a stray IPC call. Once unlocked: edit any
+  resource's YAML in place, delete, scale (Deployments/StatefulSets/ReplicaSets), and rollout
+  restart (Deployments/StatefulSets/DaemonSets) — the same `kubectl rollout restart` mechanism,
+  via the pod template's restart annotation. No exec/terminal by design — see below
 - Cluster catalog — every context in `~/.kube/config` as a searchable, favoritable card grid, plus
   a quick-access dropdown off the tab bar's Catalog button for one-click switching to a favorited
   cluster without leaving whatever you're looking at
@@ -103,8 +110,11 @@ chmod +x kubewheel-vx.y.z-linux-x86_64.AppImage
   active view
 - Six accent color presets, swapped at runtime with no rebuild needed
 
-Nothing here mutates the cluster — no edit, no delete, no exec, no scale. It only ever issues
-`get`/`list` calls against the Kubernetes API.
+By default nothing here mutates the cluster — it only issues `get`/`list` calls against the
+Kubernetes API until you explicitly unlock mutations. There's still no exec/terminal, deliberately:
+it's the one feature most likely to trip corporate EDR/antivirus heuristics (a real, documented
+issue in at least one other Kubernetes IDE), and the UI-driven actions above cover the actual
+day-to-day workflow without that risk.
 
 ## Why I built this
 
