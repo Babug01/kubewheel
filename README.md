@@ -34,8 +34,11 @@ running on a cluster and tailing pod logs, without the weight of a full IDE.
 - Helm Releases — decodes the release Secrets Helm 3 stores in-cluster directly (no `helm` binary
   needed), showing chart, versions, revision, and status; click through to the release's values
   and metadata as YAML
-- YAML detail view for any resource (managed-fields stripped for readability; Secret values are
-  always redacted — keys are shown, values never are)
+- YAML detail view for any resource (managed-fields stripped for readability)
+- Secret values are masked by default with a per-key Show/Hide toggle and a Copy button once
+  revealed (matching Freelens, not hard-redacting them) — anyone who can view a Secret through
+  this tool already has equivalent access via `kubectl get secret -o jsonpath | base64 -d`, so the
+  mask protects against shoulder-surfing/screen-share, not against a user who can already read it
 - Live pod log viewer — container picker, tail length, follow/stream toggle
 - Collapsible sidebar groups (Cluster/Workloads/Config/Network/Storage/Access Control/Helm/Custom
   Resources), remembering which are open and auto-expanding whichever holds the active view — the

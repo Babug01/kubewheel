@@ -7,7 +7,8 @@ import type {
   LogStreamRequest,
   ResourceKind,
   ResourceTableResult,
-  Result
+  Result,
+  SecretDetail
 } from '../shared/types'
 
 const api = {
@@ -33,6 +34,9 @@ const api = {
     ipcRenderer.invoke('k8s:getResourceYaml', contextName, kind, namespace, name),
   listPodContainers: (contextName: string, namespace: string, pod: string): Promise<Result<string[]>> =>
     ipcRenderer.invoke('k8s:listPodContainers', contextName, namespace, pod),
+
+  getSecretDetail: (contextName: string, namespace: string, name: string): Promise<Result<SecretDetail>> =>
+    ipcRenderer.invoke('k8s:getSecretDetail', contextName, namespace, name),
 
   listCrds: (contextName: string): Promise<Result<CrdGroups>> => ipcRenderer.invoke('k8s:listCrds', contextName),
   listCrdInstances: (

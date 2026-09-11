@@ -56,6 +56,10 @@ function registerIpcHandlers(): void {
     withResult(() => getKube(contextName).listPodContainers(namespace, pod))
   )
 
+  ipcMain.handle('k8s:getSecretDetail', (_e, contextName: string, namespace: string, name: string) =>
+    withResult(() => getKube(contextName).getSecretDetail(namespace, name))
+  )
+
   ipcMain.handle('k8s:listCrds', (_e, contextName: string) => withResult(() => getKube(contextName).listCrds()))
 
   ipcMain.handle(

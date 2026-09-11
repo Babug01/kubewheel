@@ -6,6 +6,7 @@ import ResourceView from './ResourceView'
 import CustomResources from './CustomResources'
 import HelmReleases from './HelmReleases'
 import YamlPanel from './YamlPanel'
+import SecretPanel from './SecretPanel'
 import LogPanel from './LogPanel'
 
 interface Props {
@@ -33,6 +34,7 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
   const [yamlError, setYamlError] = useState<string | null>(null)
 
   const [logTarget, setLogTarget] = useState<{ namespace: string; pod: string } | null>(null)
+  const [secretTarget, setSecretTarget] = useState<{ namespace: string; name: string } | null>(null)
 
   useEffect(() => {
     window.api.listNamespaces(contextName).then((res) => {
@@ -73,6 +75,11 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
   }
 
   const onSelectRow = (kind: ResourceKind, row: ResourceRow): void => {
+    // Secrets get their own masked/reveal-per-key panel instead of a plain YAML dump.
+    if (kind === 'secrets' && row.namespace) {
+      setSecretTarget({ namespace: row.namespace, name: row.name })
+      return
+    }
     setYamlTarget({ kind, namespace: row.namespace, name: row.name })
     setYamlText(null)
     setYamlError(null)
@@ -128,6 +135,15 @@ export default function ClusterWorkspace({ contextName }: Props): React.JSX.Elem
           namespace={logTarget.namespace}
           pod={logTarget.pod}
           onClose={() => setLogTarget(null)}
+        />
+      )}
+
+      {secretTarget && (
+        <SecretPanel
+          contextName={contextName}
+          namespace={secretTarget.namespace}
+          name={secretTarget.name}
+          onClose={() => setSecretTarget(null)}
         />
       )}
     </div>

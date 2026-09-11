@@ -29,7 +29,9 @@ import type {
   NodeSummary,
   ResourceKind,
   ResourceRow,
-  ResourceTableResult
+  ResourceTableResult,
+  SecretDetail,
+  SecretKeyValue
 } from '../../shared/types'
 import {
   formatAge,
@@ -549,6 +551,30 @@ export class KubeManager {
           age: formatAge(s.metadata?.creationTimestamp)
         }
       }))
+    }
+  }
+
+  // Values are decoded here (not left as raw base64) but the caller is responsible for masking
+  // them in the UI by default -- this only removes the "redacted entirely" wall, not the "shown
+  // by default" one. Anyone who can call this already has equivalent access via
+  // `kubectl get secret -o jsonpath | base64 -d`; masked-by-default-with-reveal (like Freelens)
+  // protects against shoulder-surfing/screen-share, not against a user who can already read it.
+  async getSecretDetail(namespace: string, name: string): Promise<SecretDetail> {
+    const secret = await this.core.readNamespacedSecret({ name, namespace })
+    const data: SecretKeyValue[] = Object.entries(secret.data ?? {}).map(([key, base64Value]) => {
+      const bytes = Buffer.from(base64Value, 'base64')
+      const text = bytes.toString('utf8')
+      const binary = text.includes('�') || /[\x00-\x08\x0E-\x1F]/.test(text)
+      return { key, value: binary ? `<binary data, ${bytes.length} bytes>` : text, binary }
+    })
+    return {
+      name: secret.metadata?.name ?? name,
+      namespace: secret.metadata?.namespace ?? namespace,
+      type: secret.type ?? 'Opaque',
+      labels: secret.metadata?.labels ?? {},
+      annotations: secret.metadata?.annotations ?? {},
+      age: formatAge(secret.metadata?.creationTimestamp),
+      data
     }
   }
 

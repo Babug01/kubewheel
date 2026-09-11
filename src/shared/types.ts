@@ -93,6 +93,22 @@ export interface CrdInfo {
 // group -> CRDs in that group, for the grouped Custom Resources sidebar (mirrors `kubectl api-resources`).
 export type CrdGroups = Record<string, CrdInfo[]>
 
+export interface SecretKeyValue {
+  key: string
+  value: string
+  binary: boolean
+}
+
+export interface SecretDetail {
+  name: string
+  namespace: string
+  type: string
+  labels: Record<string, string>
+  annotations: Record<string, string>
+  age: string
+  data: SecretKeyValue[]
+}
+
 export interface PodContainerInfo {
   name: string
   isInit: boolean
