@@ -1,6 +1,6 @@
 {
   "name": "kubewheel",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A lightweight Kubernetes cluster viewer for any cloud or on-prem cluster in your kubeconfig -- read-only by default, with an explicit unlock for edits",
   "main": "./out/main/index.js",
   "type": "module",

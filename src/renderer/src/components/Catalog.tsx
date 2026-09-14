@@ -234,8 +234,11 @@ export default function Catalog({ onOpen, onOpenPreferences }: Props): React.JSX
                       </span>
                     )}
                     {c.isCurrent && (
-                      <span className="rounded bg-accent-50 px-1.5 py-0.5 text-accent-700 dark:bg-accent-900 dark:text-accent-300">
-                        kubectl default
+                      <span
+                        className="rounded bg-accent-50 px-1.5 py-0.5 text-accent-700 dark:bg-accent-900 dark:text-accent-300"
+                        title="The current-context in ~/.kube/config"
+                      >
+                        current context
                       </span>
                     )}
                     {c.kubeconfigPath && (
